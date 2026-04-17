@@ -114,6 +114,19 @@ export function GuestsTab() {
     fetchAll()
   }, [fetchAll])
 
+  // Lookup: guest_id -> assigned room_number + room_type (via active booking).
+  // Must be declared BEFORE filteredGuests — the filter callback uses both.
+  const roomByGuestId = new Map<string, string>()
+  const roomTypeByGuestId = new Map<string, Room['room_type']>()
+  for (const b of bookings) {
+    if (b.status === 'cancelled') continue
+    const room = rooms.find((r) => r.id === b.room_id)
+    if (room) {
+      roomByGuestId.set(b.guest_id, room.room_number)
+      roomTypeByGuestId.set(b.guest_id, room.room_type)
+    }
+  }
+
   const filteredGuests = guests.filter((guest) => {
     const q = searchQuery.toLowerCase()
     const matchesSearch =
@@ -146,18 +159,6 @@ export function GuestsTab() {
       matchesAssign
     )
   })
-
-  // Lookup: guest_id -> assigned room_number + room_type (via active booking)
-  const roomByGuestId = new Map<string, string>()
-  const roomTypeByGuestId = new Map<string, Room['room_type']>()
-  for (const b of bookings) {
-    if (b.status === 'cancelled') continue
-    const room = rooms.find((r) => r.id === b.room_id)
-    if (room) {
-      roomByGuestId.set(b.guest_id, room.room_number)
-      roomTypeByGuestId.set(b.guest_id, room.room_type)
-    }
-  }
 
   // Options for filter dropdowns (derived from current data)
   const countryOptions = Array.from(new Set(guests.map((g) => g.country).filter(Boolean))).sort() as string[]
