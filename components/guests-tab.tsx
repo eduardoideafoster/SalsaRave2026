@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Guest } from '@/lib/types'
+import { Guest, Room, Booking } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Search, Pencil, Trash2, X, Check } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, X, Check, BedDouble } from 'lucide-react'
+import { AssignRoomDialog } from '@/components/assign-room-dialog'
 import {
   Dialog,
   DialogContent,
@@ -47,11 +48,14 @@ const hotelColors: Record<string, string> = {
 
 export function GuestsTab() {
   const [guests, setGuests] = useState<Guest[]>([])
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<Guest>>({})
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [assignGuest, setAssignGuest] = useState<Guest | null>(null)
   const [newGuest, setNewGuest] = useState({
     order_code: '',
     full_name: '',
@@ -64,18 +68,21 @@ export function GuestsTab() {
 
   const supabase = createClient()
 
-  const fetchGuests = useCallback(async () => {
-    const { data } = await supabase
-      .from('guests')
-      .select('*')
-      .order('order_code', { ascending: true })
-    if (data) setGuests(data)
+  const fetchAll = useCallback(async () => {
+    const [g, r, b] = await Promise.all([
+      supabase.from('guests').select('*').order('order_code', { ascending: true }),
+      supabase.from('rooms').select('*'),
+      supabase.from('bookings').select('*'),
+    ])
+    if (g.data) setGuests(g.data)
+    if (r.data) setRooms(r.data)
+    if (b.data) setBookings(b.data)
     setLoading(false)
   }, [supabase])
 
   useEffect(() => {
-    fetchGuests()
-  }, [fetchGuests])
+    fetchAll()
+  }, [fetchAll])
 
   const filteredGuests = guests.filter(
     (guest) =>
@@ -85,11 +92,19 @@ export function GuestsTab() {
       guest.ticket_type.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  // Lookup: guest_id -> assigned room_number (via active booking)
+  const roomByGuestId = new Map<string, string>()
+  for (const b of bookings) {
+    if (b.status === 'cancelled') continue
+    const room = rooms.find((r) => r.id === b.room_id)
+    if (room) roomByGuestId.set(b.guest_id, room.room_number)
+  }
+
   const handleAddGuest = async () => {
     if (!newGuest.order_code || !newGuest.full_name) return
     const { error } = await supabase.from('guests').insert([newGuest])
     if (!error) {
-      fetchGuests()
+      fetchAll()
       setIsAddDialogOpen(false)
       setNewGuest({
         order_code: '',
@@ -106,7 +121,7 @@ export function GuestsTab() {
   const handleUpdateGuest = async (id: string) => {
     const { error } = await supabase.from('guests').update(editForm).eq('id', id)
     if (!error) {
-      fetchGuests()
+      fetchAll()
       setEditingId(null)
       setEditForm({})
     }
@@ -114,7 +129,7 @@ export function GuestsTab() {
 
   const handleDeleteGuest = async (id: string) => {
     const { error } = await supabase.from('guests').delete().eq('id', id)
-    if (!error) fetchGuests()
+    if (!error) fetchAll()
   }
 
   const startEditing = (guest: Guest) => {
@@ -237,6 +252,7 @@ export function GuestsTab() {
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Role</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Country</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hotel</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Room</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ticket Type</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Check-in</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Check-out</th>
@@ -287,6 +303,18 @@ export function GuestsTab() {
                       />
                     </td>
                     <td className="px-4 py-3">
+                      {editForm.hotel ? (
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${hotelColors[editForm.hotel]}`}>
+                          {editForm.hotel}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {roomByGuestId.get(guest.id) ?? '—'}
+                    </td>
+                    <td className="px-4 py-3">
                       <Select
                         value={editForm.ticket_type}
                         onValueChange={(value) => setEditForm({ ...editForm, ticket_type: value })}
@@ -303,11 +331,21 @@ export function GuestsTab() {
                         </SelectContent>
                       </Select>
                     </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {editForm.check_in_date ? format(new Date(editForm.check_in_date), 'MMM d') : '-'}
+                    <td className="px-4 py-3">
+                      <Input
+                        type="date"
+                        value={editForm.check_in_date ?? ''}
+                        onChange={(e) => setEditForm({ ...editForm, check_in_date: e.target.value || null })}
+                        className="h-8 w-36 text-sm bg-secondary border-border"
+                      />
                     </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {editForm.check_out_date ? format(new Date(editForm.check_out_date), 'MMM d') : '-'}
+                    <td className="px-4 py-3">
+                      <Input
+                        type="date"
+                        value={editForm.check_out_date ?? ''}
+                        onChange={(e) => setEditForm({ ...editForm, check_out_date: e.target.value || null })}
+                        className="h-8 w-36 text-sm bg-secondary border-border"
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -352,6 +390,23 @@ export function GuestsTab() {
                         <span className="text-muted-foreground">-</span>
                       )}
                     </td>
+                    <td className="px-4 py-3">
+                      {guest.hotel && guest.check_in_date ? (
+                        <button
+                          onClick={() => setAssignGuest(guest)}
+                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
+                            roomByGuestId.has(guest.id)
+                              ? 'bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/30'
+                              : 'bg-secondary text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                          }`}
+                        >
+                          <BedDouble className="size-3" />
+                          <span className="font-mono">{roomByGuestId.get(guest.id) ?? 'Assign'}</span>
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{guest.ticket_type}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {guest.check_in_date ? format(new Date(guest.check_in_date), 'MMM d') : '-'}
@@ -385,7 +440,7 @@ export function GuestsTab() {
             ))}
             {filteredGuests.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
                   No guests found
                 </td>
               </tr>
@@ -393,6 +448,15 @@ export function GuestsTab() {
           </tbody>
         </table>
       </div>
+
+      <AssignRoomDialog
+        guest={assignGuest}
+        rooms={rooms}
+        bookings={bookings}
+        open={assignGuest !== null}
+        onOpenChange={(open) => !open && setAssignGuest(null)}
+        onChanged={fetchAll}
+      />
     </div>
   )
 }

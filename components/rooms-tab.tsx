@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Room } from '@/lib/types'
+import { Room, Guest, Booking } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Search, Pencil, Trash2, X, Check, Users, Wrench } from 'lucide-react'
@@ -73,21 +73,37 @@ export function RoomsTab() {
     is_staff: false,
   })
 
+  const [guests, setGuests] = useState<Guest[]>([])
+  const [bookings, setBookings] = useState<Booking[]>([])
+
   const supabase = createClient()
 
   const fetchRooms = useCallback(async () => {
-    const { data } = await supabase
-      .from('rooms')
-      .select('*')
-      .order('hotel', { ascending: true })
-      .order('room_number', { ascending: true })
-    if (data) setRooms(data)
+    const [r, g, b] = await Promise.all([
+      supabase.from('rooms').select('*').order('hotel', { ascending: true }).order('room_number', { ascending: true }),
+      supabase.from('guests').select('*'),
+      supabase.from('bookings').select('*'),
+    ])
+    if (r.data) setRooms(r.data)
+    if (g.data) setGuests(g.data)
+    if (b.data) setBookings(b.data)
     setLoading(false)
   }, [supabase])
 
   useEffect(() => {
     fetchRooms()
   }, [fetchRooms])
+
+  // Build: room_id -> list of occupant Guest objects (from active bookings)
+  const occupantsByRoom = new Map<string, Guest[]>()
+  for (const b of bookings) {
+    if (b.status === 'cancelled') continue
+    const guest = guests.find((g) => g.id === b.guest_id)
+    if (!guest) continue
+    const list = occupantsByRoom.get(b.room_id) ?? []
+    list.push(guest)
+    occupantsByRoom.set(b.room_id, list)
+  }
 
   const filteredRooms = rooms.filter((room) => {
     const matchesSearch =
@@ -341,6 +357,7 @@ export function RoomsTab() {
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Type</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Capacity</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Available From</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Occupants</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Use</th>
               <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
@@ -405,6 +422,9 @@ export function RoomsTab() {
                         onChange={(e) => setEditForm({ ...editForm, available_from: e.target.value })}
                         className="h-8 w-32 text-sm bg-secondary border-border"
                       />
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {(occupantsByRoom.get(room.id)?.length ?? 0)}/{editForm.capacity ?? room.capacity}
                     </td>
                     <td className="px-4 py-3">
                       <Select
@@ -476,10 +496,37 @@ export function RoomsTab() {
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {format(parseISO(room.available_from), 'MMM d')}
                     </td>
+                    <td className="px-4 py-3 text-xs">
+                      {(() => {
+                        const occ = occupantsByRoom.get(room.id) ?? []
+                        if (occ.length === 0) return <span className="text-muted-foreground">Empty</span>
+                        const names = occ.map((g) => g.full_name).join(', ')
+                        const full = occ.length >= room.capacity
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-foreground truncate max-w-[220px]" title={names}>{names}</span>
+                            <span className={full ? 'text-red-400' : 'text-emerald-400'}>
+                              {occ.length}/{room.capacity}
+                            </span>
+                          </div>
+                        )
+                      })()}
+                    </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border capitalize ${statusColors[room.status]}`}>
-                        {room.status}
-                      </span>
+                      {(() => {
+                        const occ = occupantsByRoom.get(room.id)?.length ?? 0
+                        const displayStatus =
+                          room.status === 'maintenance' || room.status === 'cleaning'
+                            ? room.status
+                            : occ > 0
+                              ? 'occupied'
+                              : 'available'
+                        return (
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border capitalize ${statusColors[displayStatus]}`}>
+                            {displayStatus}
+                          </span>
+                        )
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <label className="inline-flex items-center gap-2 text-sm">
@@ -520,7 +567,7 @@ export function RoomsTab() {
             ))}
             {filteredRooms.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
                   No rooms found
                 </td>
               </tr>
