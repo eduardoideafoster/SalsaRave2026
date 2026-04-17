@@ -156,7 +156,7 @@ export function AvailabilityTab() {
       return {
         date,
         label: format(date, 'EEE d'),
-        Staff: staff,
+        'Core Tribe': staff,
         'Guests 4-night': nights4,
         'Guests 3-night': nights3,
         Other: otherBooked,
@@ -227,7 +227,7 @@ export function AvailabilityTab() {
           <h3 className="font-semibold text-foreground mb-3">
             H3 — Standard Hotel ({guestRooms.filter(r => r.hotel === 'H3').length} guest rooms
             {rooms.filter(r => r.hotel === 'H3' && r.is_staff).length > 0 && (
-              <span className="text-muted-foreground font-normal"> · {rooms.filter(r => r.hotel === 'H3' && r.is_staff).length} reserved for staff</span>
+              <span className="text-muted-foreground font-normal"> · {rooms.filter(r => r.hotel === 'H3' && r.is_staff).length} reserved for Core Tribe</span>
             )})
           </h3>
           <div className="grid grid-cols-2 gap-2 text-sm">
@@ -249,7 +249,7 @@ export function AvailabilityTab() {
           <h3 className="font-semibold text-foreground mb-3">
             H4 — Upgraded Hotel ({guestRooms.filter(r => r.hotel === 'H4').length} guest rooms
             {rooms.filter(r => r.hotel === 'H4' && r.is_staff).length > 0 && (
-              <span className="text-muted-foreground font-normal"> · {rooms.filter(r => r.hotel === 'H4' && r.is_staff).length} reserved for staff</span>
+              <span className="text-muted-foreground font-normal"> · {rooms.filter(r => r.hotel === 'H4' && r.is_staff).length} reserved for Core Tribe</span>
             )})
           </h3>
           <div className="text-sm">
@@ -296,7 +296,7 @@ export function AvailabilityTab() {
                 labelStyle={{ color: 'var(--foreground)' }}
               />
               <Legend />
-              <Bar dataKey="Staff" stackId="a" fill="#a78bfa" />
+              <Bar dataKey="Core Tribe" stackId="a" fill="#a78bfa" />
               <Bar dataKey="Guests 4-night" stackId="a" fill="#116dff" />
               <Bar dataKey="Guests 3-night" stackId="a" fill="#60a5fa" />
               <Bar dataKey="Other" stackId="a" fill="#f59e0b" />

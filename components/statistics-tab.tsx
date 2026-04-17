@@ -251,7 +251,7 @@ export function StatisticsTab() {
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Staff Rooms</p>
+              <p className="text-sm font-medium text-muted-foreground">Core Tribe Rooms</p>
               <p className="text-3xl font-bold text-amber-400 mt-2">{stats.staffRoomsTotal}</p>
               <p className="text-xs text-muted-foreground mt-1">of 30 target</p>
             </div>

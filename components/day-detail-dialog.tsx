@@ -89,7 +89,7 @@ export function DayDetailDialog({ date, rooms, guests, bookings, open, onOpenCha
             icon={<BedDouble className="size-4" />}
           />
           <SummaryChip
-            label="Staff rooms"
+            label="Core Tribe rooms"
             value={data.staffOccupiedRooms.length}
             color="purple"
             icon={<BedDouble className="size-4" />}

@@ -9,6 +9,7 @@ import { Plus, Search, Pencil, Trash2, X, Check, BedDouble } from 'lucide-react'
 import { AssignRoomDialog } from '@/components/assign-room-dialog'
 import { GuestDetailDialog } from '@/components/guest-detail-dialog'
 import { SortHeader, compareBy, SortState } from '@/components/sort-header'
+import { useT } from '@/lib/i18n'
 
 type GuestSortKey =
   | 'order_code'
@@ -68,6 +69,7 @@ const hotelColors: Record<string, string> = {
 }
 
 export function GuestsTab() {
+  const t = useT()
   const [guests, setGuests] = useState<Guest[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -238,35 +240,35 @@ export function GuestsTab() {
         <div className="relative w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name, order, country..."
+            placeholder={t('guests.search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 bg-card border-border"
           />
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">{sortedGuests.length} of {guests.length} guests</span>
+          <span className="text-sm text-muted-foreground">{t('guests.count', { n: sortedGuests.length, total: guests.length })}</span>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="size-4" />
-                Add Guest
+                {t('guests.add')}
               </Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-border">
               <DialogHeader>
-                <DialogTitle className="text-foreground">Add New Guest</DialogTitle>
+                <DialogTitle className="text-foreground">{t('guests.addNew')}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <Input
-                    placeholder="Order Code *"
+                    placeholder={`${t('guests.orderCode')} *`}
                     value={newGuest.order_code}
                     onChange={(e) => setNewGuest({ ...newGuest, order_code: e.target.value })}
                     className="bg-secondary border-border"
                   />
                   <Input
-                    placeholder="Full Name *"
+                    placeholder={`${t('guests.fullName')} *`}
                     value={newGuest.full_name}
                     onChange={(e) => setNewGuest({ ...newGuest, full_name: e.target.value })}
                     className="bg-secondary border-border"
@@ -278,18 +280,18 @@ export function GuestsTab() {
                     onValueChange={(value: Guest['role']) => setNewGuest({ ...newGuest, role: value })}
                   >
                     <SelectTrigger className="bg-secondary border-border">
-                      <SelectValue placeholder="Role" />
+                      <SelectValue placeholder={t('guests.role')} />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border">
                       {roles.map((role) => (
                         <SelectItem key={role} value={role}>
-                          {role}
+                          {t(`role.${role}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <Input
-                    placeholder="Country"
+                    placeholder={t('guests.country')}
                     value={newGuest.country || ''}
                     onChange={(e) => setNewGuest({ ...newGuest, country: e.target.value })}
                     className="bg-secondary border-border"

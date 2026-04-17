@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Plus, Search, Pencil, Trash2, X, Check, Users, Music, Wand2, Download } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { SortHeader, compareBy, SortState } from '@/components/sort-header'
+import { useT } from '@/lib/i18n'
 
 type RoomSortKey =
   | 'room_number'
@@ -66,6 +67,7 @@ const typeLabels: Record<string, string> = {
 }
 
 export function RoomsTab() {
+  const t = useT()
   const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -389,7 +391,7 @@ export function RoomsTab() {
           <div className="text-2xl font-bold text-primary">{rooms.length}</div>
           <div className="text-sm text-muted-foreground">Total Rooms</div>
           <div className="text-xs text-muted-foreground mt-1">
-            {guestRoomCount} guest · <span className="text-amber-400">{staffCount} staff</span> / 30
+            {guestRoomCount} SalsaRaver · <span className="text-amber-400">{staffCount} Core Tribe</span> / 30
           </div>
         </div>
       </div>
@@ -416,13 +418,13 @@ export function RoomsTab() {
             </SelectContent>
           </Select>
           <Select value={useFilter} onValueChange={(v) => setUseFilter(v as typeof useFilter)}>
-            <SelectTrigger className="w-32 bg-card border-border">
-              <SelectValue placeholder="Use" />
+            <SelectTrigger className="w-36 bg-card border-border">
+              <SelectValue placeholder={t('filter.use')} />
             </SelectTrigger>
             <SelectContent className="bg-card border-border">
-              <SelectItem value="all">All Uses</SelectItem>
-              <SelectItem value="guest">Guests</SelectItem>
-              <SelectItem value="staff">Staff</SelectItem>
+              <SelectItem value="all">{t('filter.allUses')}</SelectItem>
+              <SelectItem value="guest">{t('filter.guests')}</SelectItem>
+              <SelectItem value="staff">{t('filter.staff')}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -557,7 +559,7 @@ export function RoomsTab() {
                   </Select>
                 </div>
                 <label className="flex items-center justify-between bg-secondary border border-border rounded-md px-3 py-2">
-                  <span className="text-sm">Staff room</span>
+                  <span className="text-sm">Core Tribe room</span>
                   <Switch
                     checked={newRoom.is_staff}
                     onCheckedChange={(v) => setNewRoom({ ...newRoom, is_staff: v })}
@@ -675,7 +677,7 @@ export function RoomsTab() {
                           aria-label="Staff room"
                         />
                         <span className={editForm.is_staff ? 'text-amber-400' : 'text-muted-foreground'}>
-                          {editForm.is_staff ? 'Staff' : 'Guest'}
+                          {editForm.is_staff ? t('use.staff') : t('use.guest')}
                         </span>
                       </label>
                     </td>
@@ -761,7 +763,7 @@ export function RoomsTab() {
                         />
                         <span className={`inline-flex items-center gap-1 ${room.is_staff ? 'text-amber-400' : 'text-muted-foreground'}`}>
                           {room.is_staff ? <Music className="size-3" /> : <Users className="size-3" />}
-                          {room.is_staff ? 'Staff' : 'Guest'}
+                          {room.is_staff ? t('use.staff') : t('use.guest')}
                         </span>
                       </label>
                     </td>
