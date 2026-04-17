@@ -72,50 +72,55 @@ export function AvailabilityTab() {
     return eachDayOfInterval({ start: EVENT_START, end: EVENT_END })
   }, [])
 
-  // Calculate availability by date — only guest rooms count; staff rooms
-  // are held for staff and never shown as "available" to guests.
+  // Calculate availability by date.
+  // Denominator = ALL rooms of each hotel (staff + guest).
+  // Numerator   = rooms not currently occupied (either by staff or guests).
   const guestRooms = useMemo(() => rooms.filter((r) => !r.is_staff), [rooms])
 
   const availabilityByDate = useMemo((): AvailabilityByDate[] => {
     return days.map((date) => {
-      const h3RoomsAvailable = guestRooms.filter(r =>
-        r.hotel === 'H3' &&
-        !isAfter(parseISO(r.available_from), date)
-      )
-      const h4RoomsAvailable = guestRooms.filter(r =>
-        r.hotel === 'H4' &&
-        !isAfter(parseISO(r.available_from), date)
-      )
+      const h3Total = rooms.filter((r) => r.hotel === 'H3').length
+      const h4Total = rooms.filter((r) => r.hotel === 'H4').length
 
-      // Rooms booked on this date
-      const bookedRoomIds = bookings
-        .filter(b => {
-          if (b.status === 'cancelled') return false
-          const checkIn = parseISO(b.check_in_date)
-          const checkOut = parseISO(b.check_out_date)
-          return !isBefore(date, checkIn) && isBefore(date, checkOut)
-        })
-        .map(b => b.room_id)
+      // Staff rooms "occupied" on this day (their available_from has kicked in)
+      const staffOccupiedH3 = rooms.filter(
+        (r) => r.hotel === 'H3' && r.is_staff && !isAfter(parseISO(r.available_from), date),
+      ).length
+      const staffOccupiedH4 = rooms.filter(
+        (r) => r.hotel === 'H4' && r.is_staff && !isAfter(parseISO(r.available_from), date),
+      ).length
 
-      const h3Free = h3RoomsAvailable.filter(r => !bookedRoomIds.includes(r.id)).length
-      const h4Free = h4RoomsAvailable.filter(r => !bookedRoomIds.includes(r.id)).length
+      // Guest-booked rooms on this day (hotel-scoped)
+      const bookedGuestRoomIds = new Set(
+        bookings
+          .filter((b) => {
+            if (b.status === 'cancelled') return false
+            const ci = parseISO(b.check_in_date)
+            const co = parseISO(b.check_out_date)
+            return !isBefore(date, ci) && isBefore(date, co)
+          })
+          .map((b) => b.room_id),
+      )
+      const h3Booked = guestRooms.filter((r) => r.hotel === 'H3' && bookedGuestRoomIds.has(r.id)).length
+      const h4Booked = guestRooms.filter((r) => r.hotel === 'H4' && bookedGuestRoomIds.has(r.id)).length
 
       return {
         date,
-        h3Available: h3Free,
-        h4Available: h4Free,
-        h3Total: h3RoomsAvailable.length,
-        h4Total: h4RoomsAvailable.length,
+        h3Available: h3Total - staffOccupiedH3 - h3Booked,
+        h4Available: h4Total - staffOccupiedH4 - h4Booked,
+        h3Total,
+        h4Total,
       }
     })
-  }, [days, guestRooms, bookings])
+  }, [days, rooms, guestRooms, bookings])
 
   // Stacked bar data: per day, split rooms into 4 layers
   //   - staff (is_staff rooms whose available_from <= date)
-  //   - 4-night bookings (check_in = Sep 10)
-  //   - 3-night bookings (check_in = Sep 11)
+  //   - 4-night bookings (check_in = '2026-09-10')
+  //   - 3-night bookings (check_in = '2026-09-11')
   //   - free (total rooms - all the above)
-  // hotelFilter narrows to H3 or H4.
+  // hotelFilter narrows to H3 or H4. String comparison on check_in_date
+  // avoids any UTC/local date drift.
   const stackedData = useMemo(() => {
     const filterHotel = (r: Room) => hotelFilter === 'all' || r.hotel === hotelFilter
     const filteredRooms = rooms.filter(filterHotel)
@@ -132,7 +137,6 @@ export function AvailabilityTab() {
         const co = parseISO(b.check_out_date)
         return !isBefore(date, ci) && isBefore(date, co)
       })
-      // Distinct room_ids booked this day (hotel-filtered)
       const bookedRoomIds = new Set<string>()
       const fourNightRoomIds = new Set<string>()
       const threeNightRoomIds = new Set<string>()
@@ -140,13 +144,11 @@ export function AvailabilityTab() {
         const room = filteredGuestRooms.find((r) => r.id === b.room_id)
         if (!room) continue
         bookedRoomIds.add(room.id)
-        const ci = parseISO(b.check_in_date)
-        if (ci.getUTCDate() === 10) fourNightRoomIds.add(room.id)
-        else if (ci.getUTCDate() === 11) threeNightRoomIds.add(room.id)
+        if (b.check_in_date === '2026-09-10') fourNightRoomIds.add(room.id)
+        else if (b.check_in_date === '2026-09-11') threeNightRoomIds.add(room.id)
       }
       const nights4 = fourNightRoomIds.size
       const nights3 = threeNightRoomIds.size
-      // Some rooms might be booked but not attributed to 3/4 (edge cases from manual edits)
       const booked = bookedRoomIds.size
       const otherBooked = Math.max(0, booked - nights4 - nights3)
 
@@ -157,8 +159,8 @@ export function AvailabilityTab() {
         date,
         label: format(date, 'EEE d'),
         'Core Tribe': staff,
-        'Guests 4-night': nights4,
-        'Guests 3-night': nights3,
+        'SalsaRavers 4 Nights': nights4,
+        'SalsaRavers 3 Nights': nights3,
         Other: otherBooked,
         Free: free,
       }
@@ -297,8 +299,8 @@ export function AvailabilityTab() {
               />
               <Legend />
               <Bar dataKey="Core Tribe" stackId="a" fill="#a78bfa" />
-              <Bar dataKey="Guests 4-night" stackId="a" fill="#116dff" />
-              <Bar dataKey="Guests 3-night" stackId="a" fill="#60a5fa" />
+              <Bar dataKey="SalsaRavers 4 Nights" stackId="a" fill="#116dff" />
+              <Bar dataKey="SalsaRavers 3 Nights" stackId="a" fill="#60a5fa" />
               <Bar dataKey="Other" stackId="a" fill="#f59e0b" />
               <Bar dataKey="Free" stackId="a" fill="#10b981" />
             </BarChart>

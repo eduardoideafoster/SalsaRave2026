@@ -335,7 +335,7 @@ export function GuestsTab() {
                   }}
                 >
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Ticket Type" />
+                    <SelectValue placeholder={t('guests.ticketType')} />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
                     {ticketTypes.map((type) => (
@@ -350,15 +350,15 @@ export function GuestsTab() {
                   onValueChange={(v) => setNewGuest({ ...newGuest, tribe: v === 'none' ? null : (v as Tribe) })}
                 >
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Tribe" />
+                    <SelectValue placeholder={t('filter.tribe')} />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
-                    <SelectItem value="none">No Tribe</SelectItem>
+                    <SelectItem value="none">{t('filter.noTribe')}</SelectItem>
                     {TRIBES.map((tr) => <SelectItem key={tr} value={tr}>{tr}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <Button onClick={handleAddGuest} className="w-full">
-                  Add Guest
+                  {t('guests.add')}
                 </Button>
               </div>
             </DialogContent>
@@ -369,60 +369,60 @@ export function GuestsTab() {
       {/* Filter bar */}
       <div className="flex items-center gap-2 flex-wrap bg-secondary/20 border border-border rounded-md p-2">
         <Select value={hotelFilter} onValueChange={setHotelFilter}>
-          <SelectTrigger className="w-32 h-8 text-sm bg-card border-border"><SelectValue placeholder="Hotel" /></SelectTrigger>
+          <SelectTrigger className="w-32 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.hotel')} /></SelectTrigger>
           <SelectContent className="bg-card border-border">
-            <SelectItem value="all">All hotels</SelectItem>
+            <SelectItem value="all">{t('filter.allHotels')}</SelectItem>
             <SelectItem value="H3">H3</SelectItem>
             <SelectItem value="H4">H4</SelectItem>
-            <SelectItem value="none">No hotel (RAVEPASS)</SelectItem>
+            <SelectItem value="none">{t('filter.noHotel')}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-32 h-8 text-sm bg-card border-border"><SelectValue placeholder="Role" /></SelectTrigger>
+          <SelectTrigger className="w-32 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.role')} /></SelectTrigger>
           <SelectContent className="bg-card border-border">
-            <SelectItem value="all">All roles</SelectItem>
-            {roles.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+            <SelectItem value="all">{t('filter.allRoles')}</SelectItem>
+            {roles.map((r) => <SelectItem key={r} value={r}>{t(`role.${r}`)}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={countryFilter} onValueChange={setCountryFilter}>
-          <SelectTrigger className="w-40 h-8 text-sm bg-card border-border"><SelectValue placeholder="Country" /></SelectTrigger>
+          <SelectTrigger className="w-40 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.country')} /></SelectTrigger>
           <SelectContent className="bg-card border-border max-h-72">
-            <SelectItem value="all">All countries</SelectItem>
+            <SelectItem value="all">{t('filter.allCountries')}</SelectItem>
             {countryOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={ticketFilter} onValueChange={setTicketFilter}>
-          <SelectTrigger className="w-44 h-8 text-sm bg-card border-border"><SelectValue placeholder="Ticket" /></SelectTrigger>
+          <SelectTrigger className="w-44 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.ticket')} /></SelectTrigger>
           <SelectContent className="bg-card border-border max-h-72">
-            <SelectItem value="all">All tickets</SelectItem>
-            {ticketOptions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            <SelectItem value="all">{t('filter.allTickets')}</SelectItem>
+            {ticketOptions.map((tk) => <SelectItem key={tk} value={tk}>{tk}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={roomTypeFilter} onValueChange={setRoomTypeFilter}>
-          <SelectTrigger className="w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder="Room Type" /></SelectTrigger>
+          <SelectTrigger className="w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.roomType')} /></SelectTrigger>
           <SelectContent className="bg-card border-border">
-            <SelectItem value="all">All room types</SelectItem>
-            <SelectItem value="single">Single</SelectItem>
-            <SelectItem value="double">Double</SelectItem>
-            <SelectItem value="triple">Triple</SelectItem>
-            <SelectItem value="quadruple">Quadruple</SelectItem>
-            <SelectItem value="unassigned">Unassigned</SelectItem>
+            <SelectItem value="all">{t('filter.allRoomTypes')}</SelectItem>
+            <SelectItem value="single">{t('type.single')}</SelectItem>
+            <SelectItem value="double">{t('type.double')}</SelectItem>
+            <SelectItem value="triple">{t('type.triple')}</SelectItem>
+            <SelectItem value="quadruple">{t('type.quadruple')}</SelectItem>
+            <SelectItem value="unassigned">{t('common.unassigned')}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={assignFilter} onValueChange={setAssignFilter}>
-          <SelectTrigger className="w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder="Assignment" /></SelectTrigger>
+          <SelectTrigger className="w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.assignment')} /></SelectTrigger>
           <SelectContent className="bg-card border-border">
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="assigned">Assigned</SelectItem>
-            <SelectItem value="unassigned">Unassigned</SelectItem>
+            <SelectItem value="all">{t('common.all')}</SelectItem>
+            <SelectItem value="assigned">{t('common.assigned')}</SelectItem>
+            <SelectItem value="unassigned">{t('common.unassigned')}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={tribeFilter} onValueChange={setTribeFilter}>
-          <SelectTrigger className="w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder="Tribe" /></SelectTrigger>
+          <SelectTrigger className="w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.tribe')} /></SelectTrigger>
           <SelectContent className="bg-card border-border">
-            <SelectItem value="all">All Tribes</SelectItem>
-            <SelectItem value="none">No Tribe</SelectItem>
-            {TRIBES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            <SelectItem value="all">{t('filter.allTribes')}</SelectItem>
+            <SelectItem value="none">{t('filter.noTribe')}</SelectItem>
+            {TRIBES.map((tr) => <SelectItem key={tr} value={tr}>{tr}</SelectItem>)}
           </SelectContent>
         </Select>
         {anyFilter && (
@@ -441,7 +441,7 @@ export function GuestsTab() {
             }}
           >
             <X className="size-3 mr-1" />
-            Clear filters
+            {t('common.clear')}
           </Button>
         )}
       </div>
@@ -450,18 +450,18 @@ export function GuestsTab() {
         <table className="w-full">
           <thead className="bg-secondary">
             <tr>
-              <SortHeader label="Order" sortKey="order_code" state={sort} onSort={setSort} />
-              <SortHeader label="Name" sortKey="full_name" state={sort} onSort={setSort} />
-              <SortHeader label="Role" sortKey="role" state={sort} onSort={setSort} />
-              <SortHeader label="Country" sortKey="country" state={sort} onSort={setSort} />
-              <SortHeader label="Hotel" sortKey="hotel" state={sort} onSort={setSort} />
-              <SortHeader label="Room" sortKey="room" state={sort} onSort={setSort} />
-              <SortHeader label="Room Type" sortKey="room_type" state={sort} onSort={setSort} />
-              <SortHeader label="Tribe" sortKey="tribe" state={sort} onSort={setSort} />
-              <SortHeader label="Ticket Type" sortKey="ticket_type" state={sort} onSort={setSort} />
-              <SortHeader label="Check-in" sortKey="check_in_date" state={sort} onSort={setSort} />
-              <SortHeader label="Check-out" sortKey="check_out_date" state={sort} onSort={setSort} />
-              <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
+              <SortHeader label={t('guests.order')} sortKey="order_code" state={sort} onSort={setSort} />
+              <SortHeader label={t('guests.name')} sortKey="full_name" state={sort} onSort={setSort} />
+              <SortHeader label={t('guests.role')} sortKey="role" state={sort} onSort={setSort} />
+              <SortHeader label={t('guests.country')} sortKey="country" state={sort} onSort={setSort} />
+              <SortHeader label={t('guests.hotel')} sortKey="hotel" state={sort} onSort={setSort} />
+              <SortHeader label={t('guests.room')} sortKey="room" state={sort} onSort={setSort} />
+              <SortHeader label={t('guests.roomType')} sortKey="room_type" state={sort} onSort={setSort} />
+              <SortHeader label={t('filter.tribe')} sortKey="tribe" state={sort} onSort={setSort} />
+              <SortHeader label={t('guests.ticketType')} sortKey="ticket_type" state={sort} onSort={setSort} />
+              <SortHeader label={t('guests.checkIn')} sortKey="check_in_date" state={sort} onSort={setSort} />
+              <SortHeader label={t('guests.checkOut')} sortKey="check_out_date" state={sort} onSort={setSort} />
+              <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('common.actions')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -494,7 +494,7 @@ export function GuestsTab() {
                         <SelectContent className="bg-card border-border">
                           {roles.map((role) => (
                             <SelectItem key={role} value={role}>
-                              {role}
+                              {t(`role.${role}`)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -534,7 +534,7 @@ export function GuestsTab() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-card border-border">
-                          <SelectItem value="none">No Tribe</SelectItem>
+                          <SelectItem value="none">{t('filter.noTribe')}</SelectItem>
                           {TRIBES.map((tr) => <SelectItem key={tr} value={tr}>{tr}</SelectItem>)}
                         </SelectContent>
                       </Select>
@@ -609,7 +609,7 @@ export function GuestsTab() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${roleColors[guest.role]}`}>
-                        {guest.role}
+                        {t(`role.${guest.role}`)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{guest.country || '-'}</td>
@@ -633,7 +633,7 @@ export function GuestsTab() {
                           }`}
                         >
                           <BedDouble className="size-3" />
-                          <span className="font-mono">{roomByGuestId.get(guest.id) ?? 'Assign'}</span>
+                          <span className="font-mono">{roomByGuestId.get(guest.id) ?? t('guests.assign')}</span>
                         </button>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
@@ -690,7 +690,7 @@ export function GuestsTab() {
             {sortedGuests.length === 0 && (
               <tr>
                 <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">
-                  No guests found
+                  {t('guests.notFound')}
                 </td>
               </tr>
             )}

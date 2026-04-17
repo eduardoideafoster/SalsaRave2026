@@ -401,7 +401,7 @@ export function RoomsTab() {
           <div className="relative w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
-              placeholder="Search rooms..."
+              placeholder={t('rooms.search')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 bg-card border-border"
@@ -409,12 +409,12 @@ export function RoomsTab() {
           </div>
           <Select value={hotelFilter} onValueChange={(v) => setHotelFilter(v as typeof hotelFilter)}>
             <SelectTrigger className="w-40 bg-card border-border">
-              <SelectValue placeholder="Filter by hotel" />
+              <SelectValue placeholder={t('filter.hotel')} />
             </SelectTrigger>
             <SelectContent className="bg-card border-border">
-              <SelectItem value="all">All Hotels</SelectItem>
-              <SelectItem value="H3">H3 (Standard)</SelectItem>
-              <SelectItem value="H4">H4 (Upgraded)</SelectItem>
+              <SelectItem value="all">{t('filter.allHotels')}</SelectItem>
+              <SelectItem value="H3">{t('hotel.H3')}</SelectItem>
+              <SelectItem value="H4">{t('hotel.H4')}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={useFilter} onValueChange={(v) => setUseFilter(v as typeof useFilter)}>
@@ -428,32 +428,32 @@ export function RoomsTab() {
             </SelectContent>
           </Select>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-36 bg-card border-border"><SelectValue placeholder="Type" /></SelectTrigger>
+            <SelectTrigger className="w-36 bg-card border-border"><SelectValue placeholder={t('filter.type')} /></SelectTrigger>
             <SelectContent className="bg-card border-border">
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="single">Single</SelectItem>
-              <SelectItem value="double">Double</SelectItem>
-              <SelectItem value="triple">Triple</SelectItem>
-              <SelectItem value="quadruple">Quadruple</SelectItem>
+              <SelectItem value="all">{t('filter.allTypes')}</SelectItem>
+              <SelectItem value="single">{t('type.single')}</SelectItem>
+              <SelectItem value="double">{t('type.double')}</SelectItem>
+              <SelectItem value="triple">{t('type.triple')}</SelectItem>
+              <SelectItem value="quadruple">{t('type.quadruple')}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-36 bg-card border-border"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger className="w-36 bg-card border-border"><SelectValue placeholder={t('filter.status')} /></SelectTrigger>
             <SelectContent className="bg-card border-border">
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="available">Available</SelectItem>
-              <SelectItem value="occupied">Occupied</SelectItem>
-              <SelectItem value="maintenance">Maintenance</SelectItem>
-              <SelectItem value="cleaning">Cleaning</SelectItem>
+              <SelectItem value="all">{t('filter.allStatuses')}</SelectItem>
+              <SelectItem value="available">{t('status.available')}</SelectItem>
+              <SelectItem value="occupied">{t('status.occupied')}</SelectItem>
+              <SelectItem value="maintenance">{t('status.maintenance')}</SelectItem>
+              <SelectItem value="cleaning">{t('status.cleaning')}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={occupancyFilter} onValueChange={setOccupancyFilter}>
-            <SelectTrigger className="w-36 bg-card border-border"><SelectValue placeholder="Fill" /></SelectTrigger>
+            <SelectTrigger className="w-36 bg-card border-border"><SelectValue placeholder={t('filter.fill')} /></SelectTrigger>
             <SelectContent className="bg-card border-border">
-              <SelectItem value="all">Any fill</SelectItem>
-              <SelectItem value="empty">Empty</SelectItem>
-              <SelectItem value="partial">Partial</SelectItem>
-              <SelectItem value="full">Full</SelectItem>
+              <SelectItem value="all">{t('filter.anyFill')}</SelectItem>
+              <SelectItem value="empty">{t('common.empty')}</SelectItem>
+              <SelectItem value="partial">{t('filter.partial')}</SelectItem>
+              <SelectItem value="full">{t('filter.full')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -477,17 +477,17 @@ export function RoomsTab() {
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="size-4" />
-                Add Room
+                {t('rooms.add')}
               </Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-border">
               <DialogHeader>
-                <DialogTitle className="text-foreground">Add New Room</DialogTitle>
+                <DialogTitle className="text-foreground">{t('rooms.addNew')}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <Input
-                    placeholder="Room Number *"
+                    placeholder={`${t('rooms.number')} *`}
                     value={newRoom.room_number}
                     onChange={(e) => setNewRoom({ ...newRoom, room_number: e.target.value })}
                     className="bg-secondary border-border"
@@ -497,12 +497,12 @@ export function RoomsTab() {
                     onValueChange={(value: Room['hotel']) => setNewRoom({ ...newRoom, hotel: value })}
                   >
                     <SelectTrigger className="bg-secondary border-border">
-                      <SelectValue placeholder="Hotel" />
+                      <SelectValue placeholder={t('guests.hotel')} />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border">
                       {hotels.map((hotel) => (
                         <SelectItem key={hotel} value={hotel}>
-                          {hotel === 'H4' ? 'H4 (Upgraded)' : 'H3 (Standard)'}
+                          {t(`hotel.${hotel}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -517,19 +517,19 @@ export function RoomsTab() {
                     }}
                   >
                     <SelectTrigger className="bg-secondary border-border">
-                      <SelectValue placeholder="Room Type" />
+                      <SelectValue placeholder={t('rooms.type')} />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border">
                       {roomTypes.map((type) => (
                         <SelectItem key={type} value={type}>
-                          {typeLabels[type]}
+                          {t(`type.${type}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <Input
                     type="number"
-                    placeholder="Capacity"
+                    placeholder={t('rooms.capacity')}
                     value={newRoom.capacity}
                     onChange={(e) => setNewRoom({ ...newRoom, capacity: parseInt(e.target.value) || 2 })}
                     className="bg-secondary border-border"
@@ -547,26 +547,26 @@ export function RoomsTab() {
                     onValueChange={(value: Room['status']) => setNewRoom({ ...newRoom, status: value })}
                   >
                     <SelectTrigger className="bg-secondary border-border">
-                      <SelectValue placeholder="Status" />
+                      <SelectValue placeholder={t('filter.status')} />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border">
                       {statusOptions.map((status) => (
                         <SelectItem key={status} value={status} className="capitalize">
-                          {status}
+                          {t(`status.${status}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <label className="flex items-center justify-between bg-secondary border border-border rounded-md px-3 py-2">
-                  <span className="text-sm">Core Tribe room</span>
+                  <span className="text-sm">{t('rooms.staffRoom')}</span>
                   <Switch
                     checked={newRoom.is_staff}
                     onCheckedChange={(v) => setNewRoom({ ...newRoom, is_staff: v })}
                   />
                 </label>
                 <Button onClick={handleAddRoom} className="w-full">
-                  Add Room
+                  {t('rooms.add')}
                 </Button>
               </div>
             </DialogContent>
@@ -578,15 +578,15 @@ export function RoomsTab() {
         <table className="w-full">
           <thead className="bg-secondary">
             <tr>
-              <SortHeader label="Room #" sortKey="room_number" state={sort} onSort={setSort} />
-              <SortHeader label="Hotel" sortKey="hotel" state={sort} onSort={setSort} />
-              <SortHeader label="Type" sortKey="room_type" state={sort} onSort={setSort} />
-              <SortHeader label="Capacity" sortKey="capacity" state={sort} onSort={setSort} />
-              <SortHeader label="Available From" sortKey="available_from" state={sort} onSort={setSort} />
-              <SortHeader label="Occupants" sortKey="occupants" state={sort} onSort={setSort} />
-              <SortHeader label="Status" sortKey="status" state={sort} onSort={setSort} />
-              <SortHeader label="Use" sortKey="is_staff" state={sort} onSort={setSort} />
-              <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
+              <SortHeader label={t('rooms.number')} sortKey="room_number" state={sort} onSort={setSort} />
+              <SortHeader label={t('guests.hotel')} sortKey="hotel" state={sort} onSort={setSort} />
+              <SortHeader label={t('rooms.type')} sortKey="room_type" state={sort} onSort={setSort} />
+              <SortHeader label={t('rooms.capacity')} sortKey="capacity" state={sort} onSort={setSort} />
+              <SortHeader label={t('rooms.availableFrom')} sortKey="available_from" state={sort} onSort={setSort} />
+              <SortHeader label={t('rooms.occupants')} sortKey="occupants" state={sort} onSort={setSort} />
+              <SortHeader label={t('filter.status')} sortKey="status" state={sort} onSort={setSort} />
+              <SortHeader label={t('filter.use')} sortKey="is_staff" state={sort} onSort={setSort} />
+              <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('common.actions')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
