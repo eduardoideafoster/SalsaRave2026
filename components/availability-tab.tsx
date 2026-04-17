@@ -12,6 +12,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  CartesianGrid,
+} from 'recharts'
+import { DayDetailDialog } from '@/components/day-detail-dialog'
 
 // Event date range: September 7-15, 2026
 const EVENT_START = new Date(2026, 8, 7) // Sep 7, 2026
@@ -33,19 +44,23 @@ interface AvailabilityByDate {
 export function AvailabilityTab() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [bookings, setBookings] = useState<BookingWithDetails[]>([])
+  const [guests, setGuests] = useState<Guest[]>([])
   const [loading, setLoading] = useState(true)
   const [hotelFilter, setHotelFilter] = useState<'all' | 'H3' | 'H4'>('all')
+  const [drilldownDate, setDrilldownDate] = useState<Date | null>(null)
 
   const supabase = createClient()
 
   const fetchData = useCallback(async () => {
-    const [roomsRes, bookingsRes] = await Promise.all([
+    const [roomsRes, bookingsRes, guestsRes] = await Promise.all([
       supabase.from('rooms').select('*').order('hotel').order('room_number'),
       supabase.from('bookings').select('*, guest:guests(*), room:rooms(*)'),
+      supabase.from('guests').select('*'),
     ])
-    
+
     if (roomsRes.data) setRooms(roomsRes.data)
     if (bookingsRes.data) setBookings(bookingsRes.data as BookingWithDetails[])
+    if (guestsRes.data) setGuests(guestsRes.data)
     setLoading(false)
   }, [supabase])
 
@@ -94,6 +109,61 @@ export function AvailabilityTab() {
       }
     })
   }, [days, guestRooms, bookings])
+
+  // Stacked bar data: per day, split rooms into 4 layers
+  //   - staff (is_staff rooms whose available_from <= date)
+  //   - 4-night bookings (check_in = Sep 10)
+  //   - 3-night bookings (check_in = Sep 11)
+  //   - free (total rooms - all the above)
+  // hotelFilter narrows to H3 or H4.
+  const stackedData = useMemo(() => {
+    const filterHotel = (r: Room) => hotelFilter === 'all' || r.hotel === hotelFilter
+    const filteredRooms = rooms.filter(filterHotel)
+    const filteredGuestRooms = guestRooms.filter(filterHotel)
+
+    return days.map((date) => {
+      const staff = filteredRooms.filter(
+        (r) => r.is_staff && !isAfter(parseISO(r.available_from), date),
+      ).length
+
+      const activeOnDate = bookings.filter((b) => {
+        if (b.status === 'cancelled') return false
+        const ci = parseISO(b.check_in_date)
+        const co = parseISO(b.check_out_date)
+        return !isBefore(date, ci) && isBefore(date, co)
+      })
+      // Distinct room_ids booked this day (hotel-filtered)
+      const bookedRoomIds = new Set<string>()
+      const fourNightRoomIds = new Set<string>()
+      const threeNightRoomIds = new Set<string>()
+      for (const b of activeOnDate) {
+        const room = filteredGuestRooms.find((r) => r.id === b.room_id)
+        if (!room) continue
+        bookedRoomIds.add(room.id)
+        const ci = parseISO(b.check_in_date)
+        if (ci.getUTCDate() === 10) fourNightRoomIds.add(room.id)
+        else if (ci.getUTCDate() === 11) threeNightRoomIds.add(room.id)
+      }
+      const nights4 = fourNightRoomIds.size
+      const nights3 = threeNightRoomIds.size
+      // Some rooms might be booked but not attributed to 3/4 (edge cases from manual edits)
+      const booked = bookedRoomIds.size
+      const otherBooked = Math.max(0, booked - nights4 - nights3)
+
+      const total = filteredRooms.length
+      const free = total - staff - booked
+
+      return {
+        date,
+        label: format(date, 'EEE d'),
+        Staff: staff,
+        'Guests 4-night': nights4,
+        'Guests 3-night': nights3,
+        Other: otherBooked,
+        Free: free,
+      }
+    })
+  }, [days, rooms, guestRooms, bookings, hotelFilter])
 
   // Room type breakdown (guest rooms only)
   const h3Breakdown = useMemo(() => {
@@ -199,9 +269,53 @@ export function AvailabilityTab() {
         </div>
       </div>
 
+      {/* Room occupancy per day — stacked bar */}
+      <div className="bg-card rounded-lg border border-border p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-foreground">
+            Room occupancy per day {hotelFilter !== 'all' && `(${hotelFilter} only)`}
+          </h3>
+          <span className="text-xs text-muted-foreground">Click a day in the table below for check-in / check-out details</span>
+        </div>
+        <div className="h-72 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={stackedData}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+              onClick={(e) => {
+                if (e && e.activePayload?.[0]?.payload?.date) {
+                  setDrilldownDate(e.activePayload[0].payload.date)
+                }
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <XAxis dataKey="label" stroke="var(--muted-foreground)" fontSize={12} />
+              <YAxis stroke="var(--muted-foreground)" fontSize={12} />
+              <Tooltip
+                contentStyle={{
+                  background: 'var(--popover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  color: 'var(--foreground)',
+                }}
+                labelStyle={{ color: 'var(--foreground)' }}
+              />
+              <Legend />
+              <Bar dataKey="Staff" stackId="a" fill="#a78bfa" />
+              <Bar dataKey="Guests 4-night" stackId="a" fill="#116dff" />
+              <Bar dataKey="Guests 3-night" stackId="a" fill="#60a5fa" />
+              <Bar dataKey="Other" stackId="a" fill="#f59e0b" />
+              <Bar dataKey="Free" stackId="a" fill="#10b981" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {/* Availability Overview */}
       <div className="bg-card rounded-lg border border-border p-4">
-        <h3 className="font-semibold text-foreground mb-4">Daily Availability Overview</h3>
+        <h3 className="font-semibold text-foreground mb-4">
+          Daily Availability Overview <span className="text-xs text-muted-foreground font-normal">· click a row for details</span>
+        </h3>
         <div className="overflow-x-auto">
           <table className="w-full min-w-max">
             <thead>
@@ -214,9 +328,13 @@ export function AvailabilityTab() {
             </thead>
             <tbody>
               {availabilityByDate.map(({ date, h3Available, h4Available, h3Total, h4Total }) => (
-                <tr key={date.toISOString()} className="border-b border-border/50">
+                <tr
+                  key={date.toISOString()}
+                  className="border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer"
+                  onClick={() => setDrilldownDate(date)}
+                >
                   <td className="px-3 py-2 text-sm">
-                    <span className="font-medium text-foreground">{format(date, 'EEE, MMM d')}</span>
+                    <span className="font-medium text-foreground hover:text-primary">{format(date, 'EEE, MMM d')}</span>
                   </td>
                   <td className="px-3 py-2 text-center">
                     <span className={`text-sm font-medium ${h3Available > 50 ? 'text-emerald-400' : h3Available > 20 ? 'text-amber-400' : 'text-red-400'}`}>
@@ -330,6 +448,15 @@ export function AvailabilityTab() {
       <div className="text-sm text-muted-foreground">
         Guest rooms: {guestRooms.length} (H3: {guestRooms.filter(r => r.hotel === 'H3').length}, H4: {guestRooms.filter(r => r.hotel === 'H4').length}) · Staff-reserved: {rooms.length - guestRooms.length}
       </div>
+
+      <DayDetailDialog
+        date={drilldownDate}
+        rooms={rooms}
+        guests={guests}
+        bookings={bookings}
+        open={drilldownDate !== null}
+        onOpenChange={(open) => !open && setDrilldownDate(null)}
+      />
     </div>
   )
 }
