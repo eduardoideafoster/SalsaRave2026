@@ -20,11 +20,11 @@ const tripleNumbers = [
 
 const updated = await sql`
   UPDATE rooms
-  SET room_type = 'triple_3beds', capacity = 3
+  SET room_type = 'triple', capacity = 3
   WHERE hotel = 'H3' AND room_number IN ${sql(tripleNumbers)}
   RETURNING room_number
 `
-console.log(`Updated ${updated.length} H3 rooms to triple_3beds capacity 3`)
+console.log(`Updated ${updated.length} H3 rooms to triple capacity 3`)
 
 const check = await sql`
   SELECT room_type, COUNT(*)::int AS n

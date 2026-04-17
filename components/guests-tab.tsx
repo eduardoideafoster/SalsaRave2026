@@ -25,9 +25,8 @@ type GuestSortKey =
 const roomTypeLabels: Record<string, string> = {
   single: 'Single',
   double: 'Double',
-  triple_3beds: 'Triple',
-  triple_double_single: 'Triple (d+s)',
-  quadruple: 'Quad',
+  triple: 'Triple',
+  quadruple: 'Quadruple',
 }
 import {
   Dialog,
@@ -368,8 +367,7 @@ export function GuestsTab() {
             <SelectItem value="all">All room types</SelectItem>
             <SelectItem value="single">Single</SelectItem>
             <SelectItem value="double">Double</SelectItem>
-            <SelectItem value="triple_3beds">Triple (3 beds)</SelectItem>
-            <SelectItem value="triple_double_single">Triple (d+s)</SelectItem>
+            <SelectItem value="triple">Triple</SelectItem>
             <SelectItem value="quadruple">Quadruple</SelectItem>
             <SelectItem value="unassigned">Unassigned</SelectItem>
           </SelectContent>

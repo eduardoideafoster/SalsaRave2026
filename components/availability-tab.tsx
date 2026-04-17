@@ -170,8 +170,7 @@ export function AvailabilityTab() {
     const h3 = guestRooms.filter(r => r.hotel === 'H3')
     return {
       double: h3.filter(r => r.room_type === 'double').length,
-      triple_3beds: h3.filter(r => r.room_type === 'triple_3beds').length,
-      triple_double_single: h3.filter(r => r.room_type === 'triple_double_single').length,
+      triple: h3.filter(r => r.room_type === 'triple').length,
       quadruple: h3.filter(r => r.room_type === 'quadruple').length,
     }
   }, [guestRooms])
@@ -233,19 +232,15 @@ export function AvailabilityTab() {
           </h3>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Double (can be single):</span>
+              <span className="text-muted-foreground">Double:</span>
               <span className="text-foreground">{h3Breakdown.double}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Triple (3 beds):</span>
-              <span className="text-foreground">{h3Breakdown.triple_3beds}</span>
+              <span className="text-muted-foreground">Triple:</span>
+              <span className="text-foreground">{h3Breakdown.triple}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Triple (dbl+sgl):</span>
-              <span className="text-foreground">{h3Breakdown.triple_double_single}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Quadruple (4 beds):</span>
+              <span className="text-muted-foreground">Quadruple:</span>
               <span className="text-foreground">{h3Breakdown.quadruple}</span>
             </div>
           </div>
@@ -405,9 +400,9 @@ export function AvailabilityTab() {
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-foreground">{room.room_number}</span>
                       <span className="text-xs text-muted-foreground">
-                        {room.hotel} - {room.room_type === 'triple_3beds' ? 'Triple (3)' : 
-                          room.room_type === 'triple_double_single' ? 'Triple (d+s)' : 
-                          room.room_type === 'quadruple' ? 'Quad' : 'Double'}
+                        {room.hotel} — {room.room_type === 'triple' ? 'Triple' :
+                          room.room_type === 'quadruple' ? 'Quad' :
+                          room.room_type === 'single' ? 'Single' : 'Double'}
                       </span>
                     </div>
                   </td>

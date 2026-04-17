@@ -35,7 +35,7 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { format, parseISO } from 'date-fns'
 
-const roomTypes = ['single', 'double', 'triple_3beds', 'triple_double_single', 'quadruple'] as const
+const roomTypes = ['single', 'double', 'triple', 'quadruple'] as const
 const hotels = ['H3', 'H4'] as const
 const statusOptions = ['available', 'occupied', 'maintenance', 'cleaning'] as const
 
@@ -49,8 +49,7 @@ const statusColors: Record<string, string> = {
 const typeColors: Record<string, string> = {
   single: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
   double: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
-  triple_3beds: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  triple_double_single: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  triple: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   quadruple: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
 }
 
@@ -62,9 +61,8 @@ const hotelColors: Record<string, string> = {
 const typeLabels: Record<string, string> = {
   single: 'Single',
   double: 'Double',
-  triple_3beds: 'Triple (3 beds)',
-  triple_double_single: 'Triple (dbl+sgl)',
-  quadruple: 'Quadruple (4 beds)',
+  triple: 'Triple',
+  quadruple: 'Quadruple',
 }
 
 export function RoomsTab() {
@@ -173,8 +171,7 @@ export function RoomsTab() {
   const h3Rooms = rooms.filter(r => r.hotel === 'H3')
   const h4Rooms = rooms.filter(r => r.hotel === 'H4')
   const h3Double = h3Rooms.filter(r => r.room_type === 'double').length
-  const h3Triple3 = h3Rooms.filter(r => r.room_type === 'triple_3beds').length
-  const h3TripleDS = h3Rooms.filter(r => r.room_type === 'triple_double_single').length
+  const h3Triple = h3Rooms.filter(r => r.room_type === 'triple').length
   const h3Quad = h3Rooms.filter(r => r.room_type === 'quadruple').length
   const staffCount = rooms.filter(r => r.is_staff).length
   const guestRoomCount = rooms.length - staffCount
@@ -385,7 +382,7 @@ export function RoomsTab() {
         <div className="bg-card rounded-lg border border-border p-4">
           <div className="text-sm font-medium text-foreground">H3 Breakdown</div>
           <div className="text-xs text-muted-foreground mt-1">
-            {h3Double} double, {h3Triple3} triple (3), {h3TripleDS} triple (d+s), {h3Quad} quad
+            {h3Double} double, {h3Triple} triple, {h3Quad} quad
           </div>
         </div>
         <div className="bg-card rounded-lg border border-border p-4">
@@ -434,8 +431,7 @@ export function RoomsTab() {
               <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="single">Single</SelectItem>
               <SelectItem value="double">Double</SelectItem>
-              <SelectItem value="triple_3beds">Triple (3 beds)</SelectItem>
-              <SelectItem value="triple_double_single">Triple (d+s)</SelectItem>
+              <SelectItem value="triple">Triple</SelectItem>
               <SelectItem value="quadruple">Quadruple</SelectItem>
             </SelectContent>
           </Select>
