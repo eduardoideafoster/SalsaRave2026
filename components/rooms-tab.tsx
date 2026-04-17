@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Room, Guest, Booking } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Search, Pencil, Trash2, X, Check, Users, Music } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, X, Check, Users, Music, Wand2, Download } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { SortHeader, compareBy, SortState } from '@/components/sort-header'
 
@@ -192,6 +192,138 @@ export function RoomsTab() {
     if (!error) fetchRooms()
   }
 
+  // Auto-assign all unassigned guests to empty rooms.
+  // Strategy: group unassigned guests by order_code (people on the same
+  // order usually share a room). For each group, find the first empty
+  // non-staff room in that guest's hotel with capacity >= group size,
+  // and assign the whole group to it. Groups that can't fit are skipped
+  // so the user can handle them manually.
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const handleAutoAssign = async () => {
+    setBulkBusy(true)
+    const assignedGuestIds = new Set(
+      bookings.filter((b) => b.status !== 'cancelled').map((b) => b.guest_id),
+    )
+    const unassigned = guests.filter(
+      (g) => !assignedGuestIds.has(g.id) && g.hotel && g.check_in_date && g.check_out_date,
+    )
+
+    // Group by order_code
+    const groups = new Map<string, Guest[]>()
+    for (const g of unassigned) {
+      const key = g.order_code
+      const arr = groups.get(key) ?? []
+      arr.push(g)
+      groups.set(key, arr)
+    }
+
+    // Track which rooms we've just filled in this batch
+    const filled = new Set<string>()
+    const newBookings: Array<{
+      guest_id: string
+      room_id: string
+      check_in_date: string
+      check_out_date: string
+      status: string
+    }> = []
+    let skipped = 0
+
+    // Sort group entries so larger groups go first (easier to place before small
+    // ones take all the big rooms)
+    const entries = [...groups.entries()].sort((a, b) => b[1].length - a[1].length)
+    for (const [, members] of entries) {
+      const hotel = members[0].hotel
+      const size = members.length
+      const room = rooms.find((r) =>
+        !r.is_staff &&
+        r.hotel === hotel &&
+        r.capacity >= size &&
+        !filled.has(r.id) &&
+        (occupantsByRoom.get(r.id)?.length ?? 0) === 0,
+      )
+      if (!room) {
+        skipped += size
+        continue
+      }
+      filled.add(room.id)
+      for (const g of members) {
+        newBookings.push({
+          guest_id: g.id,
+          room_id: room.id,
+          check_in_date: g.check_in_date!,
+          check_out_date: g.check_out_date!,
+          status: 'confirmed',
+        })
+      }
+    }
+
+    if (newBookings.length > 0) {
+      const { error } = await supabase.from('bookings').insert(newBookings)
+      if (error) {
+        alert(`Insert failed: ${error.message}`)
+        setBulkBusy(false)
+        return
+      }
+    }
+
+    await fetchRooms()
+    setBulkBusy(false)
+    alert(
+      `Auto-assign complete.\n\n` +
+        `Placed: ${newBookings.length} guest(s) across ${filled.size} room(s).\n` +
+        (skipped > 0 ? `Skipped: ${skipped} guest(s) — no matching empty room.` : ''),
+    )
+  }
+
+  // CSV export — full rooming list (one row per booked guest)
+  const handleExportCSV = () => {
+    const header = ['room_number', 'hotel', 'room_type', 'capacity', 'guest_name', 'order_code', 'role', 'country', 'ticket_type', 'check_in', 'check_out']
+    const rows: string[][] = [header]
+    const sortedByRoom = [...rooms].sort((a, b) => Number(a.room_number) - Number(b.room_number))
+    for (const room of sortedByRoom) {
+      const occ = occupantsByRoom.get(room.id) ?? []
+      if (occ.length === 0) {
+        rows.push([room.room_number, room.hotel, room.room_type, String(room.capacity), room.is_staff ? '(STAFF ROOM)' : '(EMPTY)', '', '', '', '', '', ''])
+        continue
+      }
+      for (const g of occ) {
+        rows.push([
+          room.room_number,
+          room.hotel,
+          room.room_type,
+          String(room.capacity),
+          g.full_name,
+          g.order_code,
+          g.role,
+          g.country ?? '',
+          g.ticket_type,
+          g.check_in_date ?? '',
+          g.check_out_date ?? '',
+        ])
+      }
+    }
+    // Escape fields that contain quotes, commas, or newlines
+    const csv = rows
+      .map((r) =>
+        r
+          .map((v) => {
+            if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`
+            return v
+          })
+          .join(','),
+      )
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `salsarave-2026-rooming-list-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
   const handleToggleStaff = async (room: Room, next: boolean) => {
     // Optimistic local update, then write. Default available_from when flipping
     // to staff: Sep 7 for H4, Sep 8 for H3 (matches event setup schedule).
@@ -278,8 +410,22 @@ export function RoomsTab() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">{sortedRooms.length} rooms</span>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={handleAutoAssign}
+            disabled={bulkBusy}
+            title="Group unassigned guests by order and drop each group into an empty matching room"
+          >
+            <Wand2 className="size-4" />
+            {bulkBusy ? 'Assigning...' : 'Auto-assign'}
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={handleExportCSV}>
+            <Download className="size-4" />
+            Export CSV
+          </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
