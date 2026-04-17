@@ -16,7 +16,7 @@ export interface Room {
   id: string
   room_number: string
   hotel: 'H3' | 'H4'
-  room_type: 'double' | 'triple_3beds' | 'triple_double_single' | 'quadruple'
+  room_type: 'single' | 'double' | 'triple_3beds' | 'triple_double_single' | 'quadruple'
   capacity: number
   available_from: string  // Date when room becomes available
   status: 'available' | 'occupied' | 'maintenance' | 'cleaning'

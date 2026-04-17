@@ -63,7 +63,12 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
     setBusy(room.id)
 
     // If the guest already has a booking, change that booking's room.
+    // Also handle the "single occupancy" case: a SINGLE-ticket guest alone
+    // in a double tags the room as single (capacity 1) so no one else can
+    // be added; the previous room (if any) is unwound back to double.
+    let previousRoomId: string | null = null
     if (currentBooking) {
+      previousRoomId = currentBooking.room_id
       await supabase
         .from('bookings')
         .update({ room_id: room.id })
@@ -77,6 +82,27 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
         status: 'confirmed',
       })
     }
+
+    // Tag new room as single if applicable
+    const occupantsInNewRoom = (occupants.get(room.id)?.length ?? 0) +
+      (previousRoomId === room.id ? 0 : 1) -
+      (previousRoomId === room.id ? 1 : 0)
+    if (
+      occupantsInNewRoom === 1 &&
+      guest.ticket_type.toUpperCase().includes('SINGLE ROOM') &&
+      room.room_type === 'double'
+    ) {
+      await supabase.from('rooms').update({ room_type: 'single', capacity: 1 }).eq('id', room.id)
+    }
+    // Revert previous room if it was a single and is now empty
+    if (previousRoomId && previousRoomId !== room.id) {
+      const prevOccupants = (occupants.get(previousRoomId)?.length ?? 1) - 1
+      const prevRoom = rooms.find((r) => r.id === previousRoomId)
+      if (prevRoom?.room_type === 'single' && prevOccupants === 0) {
+        await supabase.from('rooms').update({ room_type: 'double', capacity: 2 }).eq('id', previousRoomId)
+      }
+    }
+
     setBusy(null)
     onChanged()
     onOpenChange(false)
@@ -85,7 +111,14 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
   async function unassign() {
     if (!currentBooking) return
     setBusy('unassign')
+    const roomId = currentBooking.room_id
     await supabase.from('bookings').delete().eq('id', currentBooking.id)
+    // If this was the last occupant of a single-tagged room, revert to double.
+    const room = rooms.find((r) => r.id === roomId)
+    const remaining = (occupants.get(roomId)?.length ?? 1) - 1
+    if (room?.room_type === 'single' && remaining === 0) {
+      await supabase.from('rooms').update({ room_type: 'double', capacity: 2 }).eq('id', roomId)
+    }
     setBusy(null)
     onChanged()
     onOpenChange(false)

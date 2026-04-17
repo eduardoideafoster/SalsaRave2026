@@ -96,7 +96,20 @@ export function GuestDetailDialog({
 
   async function removeOccupant(bookingId: string) {
     setBusy(bookingId)
+    const b = bookings.find((x) => x.id === bookingId)
+    const roomId = b?.room_id
     await supabase.from('bookings').delete().eq('id', bookingId)
+    // If this leaves a single-tagged room empty, revert to double so it can
+    // be used again.
+    if (roomId) {
+      const r = rooms.find((x) => x.id === roomId)
+      const remaining = bookings.filter(
+        (x) => x.room_id === roomId && x.status !== 'cancelled' && x.id !== bookingId,
+      ).length
+      if (r?.room_type === 'single' && remaining === 0) {
+        await supabase.from('rooms').update({ room_type: 'double', capacity: 2 }).eq('id', roomId)
+      }
+    }
     setBusy(null)
     onChanged()
   }

@@ -244,10 +244,10 @@ export function GuestsTab() {
                     let checkOut = null
                     if (value.includes('4 NIGHTS')) {
                       checkIn = '2026-09-10'
-                      checkOut = '2026-09-15'
+                      checkOut = '2026-09-14'
                     } else if (value.includes('3 NIGHTS')) {
-                      checkIn = '2026-09-12'
-                      checkOut = '2026-09-15'
+                      checkIn = '2026-09-11'
+                      checkOut = '2026-09-14'
                     }
                     setNewGuest({ ...newGuest, ticket_type: value, check_in_date: checkIn, check_out_date: checkOut })
                   }}

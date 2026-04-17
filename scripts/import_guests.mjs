@@ -47,8 +47,8 @@ function hotelFor(ticket) {
 
 function datesFor(ticket) {
   if (ticket.startsWith('RAVEPASS')) return { check_in: null, check_out: null }
-  if (ticket.includes('4 NIGHTS')) return { check_in: '2026-09-10', check_out: '2026-09-15' }
-  if (ticket.includes('3 NIGHTS')) return { check_in: '2026-09-12', check_out: '2026-09-15' }
+  if (ticket.includes('4 NIGHTS')) return { check_in: '2026-09-10', check_out: '2026-09-14' }
+  if (ticket.includes('3 NIGHTS')) return { check_in: '2026-09-11', check_out: '2026-09-14' }
   return { check_in: null, check_out: null }
 }
 

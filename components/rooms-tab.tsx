@@ -35,7 +35,7 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { format, parseISO } from 'date-fns'
 
-const roomTypes = ['double', 'triple_3beds', 'triple_double_single', 'quadruple'] as const
+const roomTypes = ['single', 'double', 'triple_3beds', 'triple_double_single', 'quadruple'] as const
 const hotels = ['H3', 'H4'] as const
 const statusOptions = ['available', 'occupied', 'maintenance', 'cleaning'] as const
 
@@ -47,6 +47,7 @@ const statusColors: Record<string, string> = {
 }
 
 const typeColors: Record<string, string> = {
+  single: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
   double: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
   triple_3beds: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   triple_double_single: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
@@ -59,6 +60,7 @@ const hotelColors: Record<string, string> = {
 }
 
 const typeLabels: Record<string, string> = {
+  single: 'Single',
   double: 'Double',
   triple_3beds: 'Triple (3 beds)',
   triple_double_single: 'Triple (dbl+sgl)',
@@ -465,7 +467,7 @@ export function RoomsTab() {
                   <Select
                     value={newRoom.room_type}
                     onValueChange={(value: Room['room_type']) => {
-                      const capacity = value === 'quadruple' ? 4 : value.includes('triple') ? 3 : 2
+                      const capacity = value === 'quadruple' ? 4 : value.includes('triple') ? 3 : value === 'single' ? 1 : 2
                       setNewRoom({ ...newRoom, room_type: value, capacity })
                     }}
                   >
