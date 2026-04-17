@@ -1,0 +1,398 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { Guest } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Plus, Search, Pencil, Trash2, X, Check } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Spinner } from '@/components/ui/spinner'
+import { format } from 'date-fns'
+
+const roles = ['Leader', 'Follower', 'Both'] as const
+const ticketTypes = [
+  'RAVEPASS',
+  'SINGLE ROOM 3 NIGHTS',
+  'SINGLE ROOM 4 NIGHTS',
+  'DOUBLE ROOM 3 NIGHTS',
+  'DOUBLE ROOM 4 NIGHTS',
+  'TRIPLE ROOM 4 NIGHTS',
+  'UPGRADED DOUBLE ROOM 4 NIGHTS',
+] as const
+
+const roleColors: Record<string, string> = {
+  Leader: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  Follower: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
+  Both: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+}
+
+const hotelColors: Record<string, string> = {
+  H3: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+  H4: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+}
+
+export function GuestsTab() {
+  const [guests, setGuests] = useState<Guest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<Partial<Guest>>({})
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [newGuest, setNewGuest] = useState({
+    order_code: '',
+    full_name: '',
+    role: 'Follower' as Guest['role'],
+    country: '',
+    ticket_type: 'RAVEPASS',
+    check_in_date: null as string | null,
+    check_out_date: null as string | null,
+  })
+
+  const supabase = createClient()
+
+  const fetchGuests = useCallback(async () => {
+    const { data } = await supabase
+      .from('guests')
+      .select('*')
+      .order('order_code', { ascending: true })
+    if (data) setGuests(data)
+    setLoading(false)
+  }, [supabase])
+
+  useEffect(() => {
+    fetchGuests()
+  }, [fetchGuests])
+
+  const filteredGuests = guests.filter(
+    (guest) =>
+      guest.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      guest.order_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      guest.country?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      guest.ticket_type.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const handleAddGuest = async () => {
+    if (!newGuest.order_code || !newGuest.full_name) return
+    const { error } = await supabase.from('guests').insert([newGuest])
+    if (!error) {
+      fetchGuests()
+      setIsAddDialogOpen(false)
+      setNewGuest({
+        order_code: '',
+        full_name: '',
+        role: 'Follower',
+        country: '',
+        ticket_type: 'RAVEPASS',
+        check_in_date: null,
+        check_out_date: null,
+      })
+    }
+  }
+
+  const handleUpdateGuest = async (id: string) => {
+    const { error } = await supabase.from('guests').update(editForm).eq('id', id)
+    if (!error) {
+      fetchGuests()
+      setEditingId(null)
+      setEditForm({})
+    }
+  }
+
+  const handleDeleteGuest = async (id: string) => {
+    const { error } = await supabase.from('guests').delete().eq('id', id)
+    if (!error) fetchGuests()
+  }
+
+  const startEditing = (guest: Guest) => {
+    setEditingId(guest.id)
+    setEditForm(guest)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spinner className="size-8 text-primary" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="relative w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, order, country..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 bg-card border-border"
+          />
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-muted-foreground">{filteredGuests.length} guests</span>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="size-4" />
+                Add Guest
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border">
+              <DialogHeader>
+                <DialogTitle className="text-foreground">Add New Guest</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    placeholder="Order Code *"
+                    value={newGuest.order_code}
+                    onChange={(e) => setNewGuest({ ...newGuest, order_code: e.target.value })}
+                    className="bg-secondary border-border"
+                  />
+                  <Input
+                    placeholder="Full Name *"
+                    value={newGuest.full_name}
+                    onChange={(e) => setNewGuest({ ...newGuest, full_name: e.target.value })}
+                    className="bg-secondary border-border"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Select
+                    value={newGuest.role}
+                    onValueChange={(value: Guest['role']) => setNewGuest({ ...newGuest, role: value })}
+                  >
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {roles.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {role}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    placeholder="Country"
+                    value={newGuest.country || ''}
+                    onChange={(e) => setNewGuest({ ...newGuest, country: e.target.value })}
+                    className="bg-secondary border-border"
+                  />
+                </div>
+                <Select
+                  value={newGuest.ticket_type}
+                  onValueChange={(value) => {
+                    let checkIn = null
+                    let checkOut = null
+                    if (value.includes('4 NIGHTS')) {
+                      checkIn = '2026-09-10'
+                      checkOut = '2026-09-15'
+                    } else if (value.includes('3 NIGHTS')) {
+                      checkIn = '2026-09-12'
+                      checkOut = '2026-09-15'
+                    }
+                    setNewGuest({ ...newGuest, ticket_type: value, check_in_date: checkIn, check_out_date: checkOut })
+                  }}
+                >
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Ticket Type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {ticketTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleAddGuest} className="w-full">
+                  Add Guest
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-secondary">
+            <tr>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Order</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Role</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Country</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hotel</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ticket Type</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Check-in</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Check-out</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {filteredGuests.map((guest) => (
+              <tr key={guest.id} className="bg-card hover:bg-secondary/50 transition-colors">
+                {editingId === guest.id ? (
+                  <>
+                    <td className="px-4 py-3">
+                      <Input
+                        value={editForm.order_code || ''}
+                        onChange={(e) => setEditForm({ ...editForm, order_code: e.target.value })}
+                        className="h-8 w-24 text-sm bg-secondary border-border"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Input
+                        value={editForm.full_name || ''}
+                        onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                        className="h-8 text-sm bg-secondary border-border"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Select
+                        value={editForm.role}
+                        onValueChange={(value: Guest['role']) => setEditForm({ ...editForm, role: value })}
+                      >
+                        <SelectTrigger className="h-8 w-24 text-sm bg-secondary border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          {roles.map((role) => (
+                            <SelectItem key={role} value={role}>
+                              {role}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Input
+                        value={editForm.country || ''}
+                        onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+                        className="h-8 w-28 text-sm bg-secondary border-border"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Select
+                        value={editForm.ticket_type}
+                        onValueChange={(value) => setEditForm({ ...editForm, ticket_type: value })}
+                      >
+                        <SelectTrigger className="h-8 w-40 text-sm bg-secondary border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          {ticketTypes.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {editForm.check_in_date ? format(new Date(editForm.check_in_date), 'MMM d') : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {editForm.check_out_date ? format(new Date(editForm.check_out_date), 'MMM d') : '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-primary hover:text-primary"
+                          onClick={() => handleUpdateGuest(guest.id)}
+                        >
+                          <Check className="size-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setEditingId(null)
+                            setEditForm({})
+                          }}
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="px-4 py-3 text-sm font-mono text-muted-foreground">{guest.order_code}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-foreground">{guest.full_name}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${roleColors[guest.role]}`}>
+                        {guest.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{guest.country || '-'}</td>
+                    <td className="px-4 py-3">
+                      {guest.hotel ? (
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${hotelColors[guest.hotel]}`}>
+                          {guest.hotel === 'H4' ? 'H4 (Upgraded)' : 'H3 (Standard)'}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{guest.ticket_type}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {guest.check_in_date ? format(new Date(guest.check_in_date), 'MMM d') : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {guest.check_out_date ? format(new Date(guest.check_out_date), 'MMM d') : '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => startEditing(guest)}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteGuest(guest.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+            {filteredGuests.length === 0 && (
+              <tr>
+                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                  No guests found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}

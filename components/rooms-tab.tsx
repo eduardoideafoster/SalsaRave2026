@@ -1,0 +1,466 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { Room } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Plus, Search, Pencil, Trash2, X, Check } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Spinner } from '@/components/ui/spinner'
+import { format, parseISO } from 'date-fns'
+
+const roomTypes = ['double', 'triple_3beds', 'triple_double_single', 'quadruple'] as const
+const hotels = ['H3', 'H4'] as const
+const statusOptions = ['available', 'occupied', 'maintenance', 'cleaning'] as const
+
+const statusColors: Record<string, string> = {
+  available: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  occupied: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  maintenance: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  cleaning: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+}
+
+const typeColors: Record<string, string> = {
+  double: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+  triple_3beds: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  triple_double_single: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  quadruple: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
+}
+
+const hotelColors: Record<string, string> = {
+  H3: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+  H4: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+}
+
+const typeLabels: Record<string, string> = {
+  double: 'Double',
+  triple_3beds: 'Triple (3 beds)',
+  triple_double_single: 'Triple (dbl+sgl)',
+  quadruple: 'Quadruple (4 beds)',
+}
+
+export function RoomsTab() {
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [hotelFilter, setHotelFilter] = useState<'all' | 'H3' | 'H4'>('all')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<Partial<Room>>({})
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [newRoom, setNewRoom] = useState({
+    room_number: '',
+    hotel: 'H3' as Room['hotel'],
+    room_type: 'double' as Room['room_type'],
+    capacity: 2,
+    available_from: '2026-09-07',
+    status: 'available' as Room['status'],
+  })
+
+  const supabase = createClient()
+
+  const fetchRooms = useCallback(async () => {
+    const { data } = await supabase
+      .from('rooms')
+      .select('*')
+      .order('hotel', { ascending: true })
+      .order('room_number', { ascending: true })
+    if (data) setRooms(data)
+    setLoading(false)
+  }, [supabase])
+
+  useEffect(() => {
+    fetchRooms()
+  }, [fetchRooms])
+
+  const filteredRooms = rooms.filter((room) => {
+    const matchesSearch =
+      room.room_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      room.room_type.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesHotel = hotelFilter === 'all' || room.hotel === hotelFilter
+    return matchesSearch && matchesHotel
+  })
+
+  // Room summary stats
+  const h3Rooms = rooms.filter(r => r.hotel === 'H3')
+  const h4Rooms = rooms.filter(r => r.hotel === 'H4')
+  const h3Double = h3Rooms.filter(r => r.room_type === 'double').length
+  const h3Triple3 = h3Rooms.filter(r => r.room_type === 'triple_3beds').length
+  const h3TripleDS = h3Rooms.filter(r => r.room_type === 'triple_double_single').length
+  const h3Quad = h3Rooms.filter(r => r.room_type === 'quadruple').length
+
+  const handleAddRoom = async () => {
+    if (!newRoom.room_number) return
+    const { error } = await supabase.from('rooms').insert([newRoom])
+    if (!error) {
+      fetchRooms()
+      setIsAddDialogOpen(false)
+      setNewRoom({
+        room_number: '',
+        hotel: 'H3',
+        room_type: 'double',
+        capacity: 2,
+        available_from: '2026-09-07',
+        status: 'available',
+      })
+    }
+  }
+
+  const handleUpdateRoom = async (id: string) => {
+    const { error } = await supabase.from('rooms').update(editForm).eq('id', id)
+    if (!error) {
+      fetchRooms()
+      setEditingId(null)
+      setEditForm({})
+    }
+  }
+
+  const handleDeleteRoom = async (id: string) => {
+    const { error } = await supabase.from('rooms').delete().eq('id', id)
+    if (!error) fetchRooms()
+  }
+
+  const startEditing = (room: Room) => {
+    setEditingId(room.id)
+    setEditForm(room)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spinner className="size-8 text-primary" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-card rounded-lg border border-border p-4">
+          <div className="text-2xl font-bold text-amber-400">{h4Rooms.length}</div>
+          <div className="text-sm text-muted-foreground">H4 (Upgraded)</div>
+          <div className="text-xs text-muted-foreground mt-1">50 max - All double</div>
+        </div>
+        <div className="bg-card rounded-lg border border-border p-4">
+          <div className="text-2xl font-bold text-slate-300">{h3Rooms.length}</div>
+          <div className="text-sm text-muted-foreground">H3 (Standard)</div>
+          <div className="text-xs text-muted-foreground mt-1">230 max</div>
+        </div>
+        <div className="bg-card rounded-lg border border-border p-4">
+          <div className="text-sm font-medium text-foreground">H3 Breakdown</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {h3Double} double, {h3Triple3} triple (3), {h3TripleDS} triple (d+s), {h3Quad} quad
+          </div>
+        </div>
+        <div className="bg-card rounded-lg border border-border p-4">
+          <div className="text-2xl font-bold text-primary">{rooms.length}</div>
+          <div className="text-sm text-muted-foreground">Total Rooms</div>
+          <div className="text-xs text-muted-foreground mt-1">280 max capacity</div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-4">
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search rooms..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-card border-border"
+            />
+          </div>
+          <Select value={hotelFilter} onValueChange={(v) => setHotelFilter(v as typeof hotelFilter)}>
+            <SelectTrigger className="w-40 bg-card border-border">
+              <SelectValue placeholder="Filter by hotel" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border">
+              <SelectItem value="all">All Hotels</SelectItem>
+              <SelectItem value="H3">H3 (Standard)</SelectItem>
+              <SelectItem value="H4">H4 (Upgraded)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-muted-foreground">{filteredRooms.length} rooms</span>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="size-4" />
+                Add Room
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border">
+              <DialogHeader>
+                <DialogTitle className="text-foreground">Add New Room</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    placeholder="Room Number *"
+                    value={newRoom.room_number}
+                    onChange={(e) => setNewRoom({ ...newRoom, room_number: e.target.value })}
+                    className="bg-secondary border-border"
+                  />
+                  <Select
+                    value={newRoom.hotel}
+                    onValueChange={(value: Room['hotel']) => setNewRoom({ ...newRoom, hotel: value })}
+                  >
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue placeholder="Hotel" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {hotels.map((hotel) => (
+                        <SelectItem key={hotel} value={hotel}>
+                          {hotel === 'H4' ? 'H4 (Upgraded)' : 'H3 (Standard)'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Select
+                    value={newRoom.room_type}
+                    onValueChange={(value: Room['room_type']) => {
+                      const capacity = value === 'quadruple' ? 4 : value.includes('triple') ? 3 : 2
+                      setNewRoom({ ...newRoom, room_type: value, capacity })
+                    }}
+                  >
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue placeholder="Room Type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {roomTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {typeLabels[type]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    placeholder="Capacity"
+                    value={newRoom.capacity}
+                    onChange={(e) => setNewRoom({ ...newRoom, capacity: parseInt(e.target.value) || 2 })}
+                    className="bg-secondary border-border"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    type="date"
+                    value={newRoom.available_from}
+                    onChange={(e) => setNewRoom({ ...newRoom, available_from: e.target.value })}
+                    className="bg-secondary border-border"
+                  />
+                  <Select
+                    value={newRoom.status}
+                    onValueChange={(value: Room['status']) => setNewRoom({ ...newRoom, status: value })}
+                  >
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {statusOptions.map((status) => (
+                        <SelectItem key={status} value={status} className="capitalize">
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleAddRoom} className="w-full">
+                  Add Room
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-secondary">
+            <tr>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Room #</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hotel</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Type</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Capacity</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Available From</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {filteredRooms.map((room) => (
+              <tr key={room.id} className="bg-card hover:bg-secondary/50 transition-colors">
+                {editingId === room.id ? (
+                  <>
+                    <td className="px-4 py-3">
+                      <Input
+                        value={editForm.room_number || ''}
+                        onChange={(e) => setEditForm({ ...editForm, room_number: e.target.value })}
+                        className="h-8 w-24 text-sm bg-secondary border-border"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Select
+                        value={editForm.hotel}
+                        onValueChange={(value: Room['hotel']) => setEditForm({ ...editForm, hotel: value })}
+                      >
+                        <SelectTrigger className="h-8 w-28 text-sm bg-secondary border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          {hotels.map((h) => (
+                            <SelectItem key={h} value={h}>{h}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Select
+                        value={editForm.room_type}
+                        onValueChange={(value: Room['room_type']) => setEditForm({ ...editForm, room_type: value })}
+                      >
+                        <SelectTrigger className="h-8 w-36 text-sm bg-secondary border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          {roomTypes.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {typeLabels[type]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Input
+                        type="number"
+                        value={editForm.capacity || 2}
+                        onChange={(e) => setEditForm({ ...editForm, capacity: parseInt(e.target.value) || 2 })}
+                        className="h-8 w-16 text-sm bg-secondary border-border"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Input
+                        type="date"
+                        value={editForm.available_from || ''}
+                        onChange={(e) => setEditForm({ ...editForm, available_from: e.target.value })}
+                        className="h-8 w-32 text-sm bg-secondary border-border"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Select
+                        value={editForm.status}
+                        onValueChange={(value: Room['status']) => setEditForm({ ...editForm, status: value })}
+                      >
+                        <SelectTrigger className="h-8 w-28 text-sm bg-secondary border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          {statusOptions.map((status) => (
+                            <SelectItem key={status} value={status} className="capitalize">
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-primary hover:text-primary"
+                          onClick={() => handleUpdateRoom(room.id)}
+                        >
+                          <Check className="size-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setEditingId(null)
+                            setEditForm({})
+                          }}
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="px-4 py-3 text-sm font-medium text-foreground">{room.room_number}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${hotelColors[room.hotel]}`}>
+                        {room.hotel}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${typeColors[room.room_type]}`}>
+                        {typeLabels[room.room_type]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{room.capacity}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {format(parseISO(room.available_from), 'MMM d')}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border capitalize ${statusColors[room.status]}`}>
+                        {room.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => startEditing(room)}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteRoom(room.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+            {filteredRooms.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                  No rooms found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
