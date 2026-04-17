@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Room } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Search, Pencil, Trash2, X, Check } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, X, Check, Users, Wrench } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,7 @@ export function RoomsTab() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [hotelFilter, setHotelFilter] = useState<'all' | 'H3' | 'H4'>('all')
+  const [useFilter, setUseFilter] = useState<'all' | 'guest' | 'staff'>('all')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<Room>>({})
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -68,6 +70,7 @@ export function RoomsTab() {
     capacity: 2,
     available_from: '2026-09-07',
     status: 'available' as Room['status'],
+    is_staff: false,
   })
 
   const supabase = createClient()
@@ -91,7 +94,11 @@ export function RoomsTab() {
       room.room_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       room.room_type.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesHotel = hotelFilter === 'all' || room.hotel === hotelFilter
-    return matchesSearch && matchesHotel
+    const matchesUse =
+      useFilter === 'all' ||
+      (useFilter === 'staff' && room.is_staff) ||
+      (useFilter === 'guest' && !room.is_staff)
+    return matchesSearch && matchesHotel && matchesUse
   })
 
   // Room summary stats
@@ -101,6 +108,8 @@ export function RoomsTab() {
   const h3Triple3 = h3Rooms.filter(r => r.room_type === 'triple_3beds').length
   const h3TripleDS = h3Rooms.filter(r => r.room_type === 'triple_double_single').length
   const h3Quad = h3Rooms.filter(r => r.room_type === 'quadruple').length
+  const staffCount = rooms.filter(r => r.is_staff).length
+  const guestRoomCount = rooms.length - staffCount
 
   const handleAddRoom = async () => {
     if (!newRoom.room_number) return
@@ -115,6 +124,7 @@ export function RoomsTab() {
         capacity: 2,
         available_from: '2026-09-07',
         status: 'available',
+        is_staff: false,
       })
     }
   }
@@ -131,6 +141,18 @@ export function RoomsTab() {
   const handleDeleteRoom = async (id: string) => {
     const { error } = await supabase.from('rooms').delete().eq('id', id)
     if (!error) fetchRooms()
+  }
+
+  const handleToggleStaff = async (room: Room, next: boolean) => {
+    // Optimistic local update, then write. Default available_from when flipping
+    // to staff: Sep 7 for H4, Sep 8 for H3 (matches event setup schedule).
+    setRooms((rs) => rs.map((r) => (r.id === room.id ? { ...r, is_staff: next } : r)))
+    const available_from = next ? (room.hotel === 'H4' ? '2026-09-07' : '2026-09-08') : room.available_from
+    const { error } = await supabase
+      .from('rooms')
+      .update({ is_staff: next, available_from })
+      .eq('id', room.id)
+    if (error) fetchRooms()
   }
 
   const startEditing = (room: Room) => {
@@ -169,7 +191,9 @@ export function RoomsTab() {
         <div className="bg-card rounded-lg border border-border p-4">
           <div className="text-2xl font-bold text-primary">{rooms.length}</div>
           <div className="text-sm text-muted-foreground">Total Rooms</div>
-          <div className="text-xs text-muted-foreground mt-1">280 max capacity</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {guestRoomCount} guest · <span className="text-amber-400">{staffCount} staff</span> / 30
+          </div>
         </div>
       </div>
 
@@ -192,6 +216,16 @@ export function RoomsTab() {
               <SelectItem value="all">All Hotels</SelectItem>
               <SelectItem value="H3">H3 (Standard)</SelectItem>
               <SelectItem value="H4">H4 (Upgraded)</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={useFilter} onValueChange={(v) => setUseFilter(v as typeof useFilter)}>
+            <SelectTrigger className="w-36 bg-card border-border">
+              <SelectValue placeholder="Use" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border">
+              <SelectItem value="all">All Uses</SelectItem>
+              <SelectItem value="guest">Guests</SelectItem>
+              <SelectItem value="staff">Staff</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -282,6 +316,13 @@ export function RoomsTab() {
                     </SelectContent>
                   </Select>
                 </div>
+                <label className="flex items-center justify-between bg-secondary border border-border rounded-md px-3 py-2">
+                  <span className="text-sm">Staff room</span>
+                  <Switch
+                    checked={newRoom.is_staff}
+                    onCheckedChange={(v) => setNewRoom({ ...newRoom, is_staff: v })}
+                  />
+                </label>
                 <Button onClick={handleAddRoom} className="w-full">
                   Add Room
                 </Button>
@@ -301,6 +342,7 @@ export function RoomsTab() {
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Capacity</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Available From</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Use</th>
               <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
@@ -382,6 +424,18 @@ export function RoomsTab() {
                       </Select>
                     </td>
                     <td className="px-4 py-3">
+                      <label className="inline-flex items-center gap-2 text-sm">
+                        <Switch
+                          checked={!!editForm.is_staff}
+                          onCheckedChange={(v) => setEditForm({ ...editForm, is_staff: v })}
+                          aria-label="Staff room"
+                        />
+                        <span className={editForm.is_staff ? 'text-amber-400' : 'text-muted-foreground'}>
+                          {editForm.is_staff ? 'Staff' : 'Guest'}
+                        </span>
+                      </label>
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           size="icon"
@@ -428,6 +482,19 @@ export function RoomsTab() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
+                      <label className="inline-flex items-center gap-2 text-sm">
+                        <Switch
+                          checked={room.is_staff}
+                          onCheckedChange={(v) => handleToggleStaff(room, v)}
+                          aria-label="Staff room"
+                        />
+                        <span className={`inline-flex items-center gap-1 ${room.is_staff ? 'text-amber-400' : 'text-muted-foreground'}`}>
+                          {room.is_staff ? <Wrench className="size-3" /> : <Users className="size-3" />}
+                          {room.is_staff ? 'Staff' : 'Guest'}
+                        </span>
+                      </label>
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           size="icon"
@@ -453,7 +520,7 @@ export function RoomsTab() {
             ))}
             {filteredRooms.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                   No rooms found
                 </td>
               </tr>

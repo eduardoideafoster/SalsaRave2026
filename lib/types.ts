@@ -20,6 +20,7 @@ export interface Room {
   capacity: number
   available_from: string  // Date when room becomes available
   status: 'available' | 'occupied' | 'maintenance' | 'cleaning'
+  is_staff: boolean
   notes: string | null
   created_at: string
   updated_at: string
