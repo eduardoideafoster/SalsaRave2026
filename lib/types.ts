@@ -8,9 +8,22 @@ export interface Guest {
   hotel: 'H3' | 'H4' | null  // null for RAVEPASS (no accommodation)
   check_in_date: string | null
   check_out_date: string | null
+  tribe: Tribe | null
   created_at: string
   updated_at: string
 }
+
+export const TRIBES = [
+  'Root Tribe',
+  'Lens Tribe',
+  'Beat Tribe',
+  'Sunset Tribe',
+  'Fresh Tribe',
+  'Pulse Tribe',
+  'Spin Tribe',
+  'Core Tribe',
+] as const
+export type Tribe = (typeof TRIBES)[number]
 
 export interface Room {
   id: string

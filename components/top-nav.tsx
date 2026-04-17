@@ -1,7 +1,8 @@
 'use client'
 
 import { Tab } from '@/lib/types'
-import { Building2, Users, BedDouble, CalendarDays, BarChart3, Globe } from 'lucide-react'
+import { Users, BedDouble, CalendarDays, BarChart3, Globe } from 'lucide-react'
+import Image from 'next/image'
 import { useLang, useT } from '@/lib/i18n'
 
 interface TopNavProps {
@@ -24,8 +25,8 @@ export function TopNav({ activeTab, onTabChange }: TopNavProps) {
     <header className="border-b border-border bg-card">
       <div className="flex items-center gap-8 px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center size-9 rounded-lg bg-primary text-primary-foreground">
-            <Building2 className="size-5" />
+          <div className="flex items-center justify-center size-9 rounded-lg overflow-hidden">
+            <Image src="/favicon.png" alt="SalsaRave 2026" width={36} height={36} priority />
           </div>
           <h1 className="text-lg font-semibold tracking-tight text-foreground">SalsaRave 2026</h1>
         </div>
@@ -36,10 +37,11 @@ export function TopNav({ activeTab, onTabChange }: TopNavProps) {
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={`
-                flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors
+                flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md
+                transition-all duration-150 ease-out
                 ${activeTab === tab.id
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/30'
+                  : 'text-muted-foreground hover:text-primary hover:bg-primary/10 hover:-translate-y-px hover:shadow-sm'
                 }
               `}
             >

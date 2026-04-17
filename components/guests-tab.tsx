@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Guest, Room, Booking } from '@/lib/types'
+import { Guest, Room, Booking, TRIBES, Tribe } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Search, Pencil, Trash2, X, Check, BedDouble } from 'lucide-react'
@@ -19,9 +19,21 @@ type GuestSortKey =
   | 'hotel'
   | 'room'
   | 'room_type'
+  | 'tribe'
   | 'ticket_type'
   | 'check_in_date'
   | 'check_out_date'
+
+const tribeColors: Record<string, string> = {
+  'Root Tribe': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  'Lens Tribe': 'bg-violet-500/20 text-violet-400 border-violet-500/30',
+  'Beat Tribe': 'bg-rose-500/20 text-rose-400 border-rose-500/30',
+  'Sunset Tribe': 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  'Fresh Tribe': 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+  'Pulse Tribe': 'bg-pink-500/20 text-pink-400 border-pink-500/30',
+  'Spin Tribe': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  'Core Tribe': 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+}
 
 const roomTypeLabels: Record<string, string> = {
   single: 'Single',
@@ -96,7 +108,9 @@ export function GuestsTab() {
     ticket_type: 'RAVEPASS',
     check_in_date: null as string | null,
     check_out_date: null as string | null,
+    tribe: null as Tribe | null,
   })
+  const [tribeFilter, setTribeFilter] = useState<string>('all')
 
   const supabase = createClient()
 
@@ -151,6 +165,9 @@ export function GuestsTab() {
     const matchesAssign =
       assignFilter === 'all' ||
       (assignFilter === 'assigned' ? roomByGuestId.has(guest.id) : !roomByGuestId.has(guest.id))
+    const matchesTribe =
+      tribeFilter === 'all' ||
+      (tribeFilter === 'none' ? !guest.tribe : guest.tribe === tribeFilter)
     return (
       matchesSearch &&
       matchesHotel &&
@@ -158,7 +175,8 @@ export function GuestsTab() {
       matchesCountry &&
       matchesTicket &&
       matchesRoomType &&
-      matchesAssign
+      matchesAssign &&
+      matchesTribe
     )
   })
 
@@ -175,6 +193,8 @@ export function GuestsTab() {
           return rn ? Number(rn) : null
         case 'room_type':
           return roomTypeByGuestId.get(g.id) ?? null
+        case 'tribe':
+          return g.tribe ?? null
         default:
           return (g as Record<string, unknown>)[sort.key] as string | number | null
       }
@@ -195,6 +215,7 @@ export function GuestsTab() {
         ticket_type: 'RAVEPASS',
         check_in_date: null,
         check_out_date: null,
+        tribe: null,
       })
     }
   }
@@ -232,7 +253,8 @@ export function GuestsTab() {
     countryFilter !== 'all' ||
     ticketFilter !== 'all' ||
     roomTypeFilter !== 'all' ||
-    assignFilter !== 'all'
+    assignFilter !== 'all' ||
+    tribeFilter !== 'all'
 
   return (
     <div className="space-y-4">
@@ -323,6 +345,18 @@ export function GuestsTab() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select
+                  value={newGuest.tribe ?? 'none'}
+                  onValueChange={(v) => setNewGuest({ ...newGuest, tribe: v === 'none' ? null : (v as Tribe) })}
+                >
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Tribe" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="none">No Tribe</SelectItem>
+                    {TRIBES.map((tr) => <SelectItem key={tr} value={tr}>{tr}</SelectItem>)}
+                  </SelectContent>
+                </Select>
                 <Button onClick={handleAddGuest} className="w-full">
                   Add Guest
                 </Button>
@@ -383,6 +417,14 @@ export function GuestsTab() {
             <SelectItem value="unassigned">Unassigned</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={tribeFilter} onValueChange={setTribeFilter}>
+          <SelectTrigger className="w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder="Tribe" /></SelectTrigger>
+          <SelectContent className="bg-card border-border">
+            <SelectItem value="all">All Tribes</SelectItem>
+            <SelectItem value="none">No Tribe</SelectItem>
+            {TRIBES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+          </SelectContent>
+        </Select>
         {anyFilter && (
           <Button
             variant="ghost"
@@ -395,6 +437,7 @@ export function GuestsTab() {
               setTicketFilter('all')
               setRoomTypeFilter('all')
               setAssignFilter('all')
+              setTribeFilter('all')
             }}
           >
             <X className="size-3 mr-1" />
@@ -414,6 +457,7 @@ export function GuestsTab() {
               <SortHeader label="Hotel" sortKey="hotel" state={sort} onSort={setSort} />
               <SortHeader label="Room" sortKey="room" state={sort} onSort={setSort} />
               <SortHeader label="Room Type" sortKey="room_type" state={sort} onSort={setSort} />
+              <SortHeader label="Tribe" sortKey="tribe" state={sort} onSort={setSort} />
               <SortHeader label="Ticket Type" sortKey="ticket_type" state={sort} onSort={setSort} />
               <SortHeader label="Check-in" sortKey="check_in_date" state={sort} onSort={setSort} />
               <SortHeader label="Check-out" sortKey="check_out_date" state={sort} onSort={setSort} />
@@ -480,6 +524,20 @@ export function GuestsTab() {
                         const rt = roomTypeByGuestId.get(guest.id)
                         return rt ? <span className="text-muted-foreground">{roomTypeLabels[rt]}</span> : <span className="text-muted-foreground">—</span>
                       })()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Select
+                        value={editForm.tribe ?? 'none'}
+                        onValueChange={(v) => setEditForm({ ...editForm, tribe: v === 'none' ? null : (v as Tribe) })}
+                      >
+                        <SelectTrigger className="h-8 w-36 text-sm bg-secondary border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          <SelectItem value="none">No Tribe</SelectItem>
+                          {TRIBES.map((tr) => <SelectItem key={tr} value={tr}>{tr}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </td>
                     <td className="px-4 py-3">
                       <Select
@@ -589,6 +647,15 @@ export function GuestsTab() {
                           : <span className="text-muted-foreground">—</span>
                       })()}
                     </td>
+                    <td className="px-4 py-3">
+                      {guest.tribe ? (
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${tribeColors[guest.tribe] ?? 'bg-secondary border-border text-muted-foreground'}`}>
+                          {guest.tribe}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{guest.ticket_type}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {guest.check_in_date ? format(new Date(guest.check_in_date), 'MMM d') : '-'}
@@ -622,7 +689,7 @@ export function GuestsTab() {
             ))}
             {sortedGuests.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">
                   No guests found
                 </td>
               </tr>
