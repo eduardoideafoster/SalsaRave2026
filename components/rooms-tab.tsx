@@ -73,6 +73,9 @@ export function RoomsTab() {
   const [searchQuery, setSearchQuery] = useState('')
   const [hotelFilter, setHotelFilter] = useState<'all' | 'H3' | 'H4'>('all')
   const [useFilter, setUseFilter] = useState<'all' | 'guest' | 'staff'>('all')
+  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [occupancyFilter, setOccupancyFilter] = useState<string>('all') // all | empty | partial | full
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<Room>>({})
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -128,7 +131,21 @@ export function RoomsTab() {
       useFilter === 'all' ||
       (useFilter === 'staff' && room.is_staff) ||
       (useFilter === 'guest' && !room.is_staff)
-    return matchesSearch && matchesHotel && matchesUse
+    const matchesType = typeFilter === 'all' || room.room_type === typeFilter
+    const occ = occupantsByRoom.get(room.id)?.length ?? 0
+    const derivedStatus =
+      room.status === 'maintenance' || room.status === 'cleaning'
+        ? room.status
+        : occ > 0
+          ? 'occupied'
+          : 'available'
+    const matchesStatus = statusFilter === 'all' || derivedStatus === statusFilter
+    const matchesOccupancy =
+      occupancyFilter === 'all' ||
+      (occupancyFilter === 'empty' && occ === 0) ||
+      (occupancyFilter === 'partial' && occ > 0 && occ < room.capacity) ||
+      (occupancyFilter === 'full' && occ >= room.capacity)
+    return matchesSearch && matchesHotel && matchesUse && matchesType && matchesStatus && matchesOccupancy
   })
 
   const sortedRooms = [...filteredRooms].sort(
@@ -402,13 +419,43 @@ export function RoomsTab() {
             </SelectContent>
           </Select>
           <Select value={useFilter} onValueChange={(v) => setUseFilter(v as typeof useFilter)}>
-            <SelectTrigger className="w-36 bg-card border-border">
+            <SelectTrigger className="w-32 bg-card border-border">
               <SelectValue placeholder="Use" />
             </SelectTrigger>
             <SelectContent className="bg-card border-border">
               <SelectItem value="all">All Uses</SelectItem>
               <SelectItem value="guest">Guests</SelectItem>
               <SelectItem value="staff">Staff</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-36 bg-card border-border"><SelectValue placeholder="Type" /></SelectTrigger>
+            <SelectContent className="bg-card border-border">
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="single">Single</SelectItem>
+              <SelectItem value="double">Double</SelectItem>
+              <SelectItem value="triple_3beds">Triple (3 beds)</SelectItem>
+              <SelectItem value="triple_double_single">Triple (d+s)</SelectItem>
+              <SelectItem value="quadruple">Quadruple</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-36 bg-card border-border"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent className="bg-card border-border">
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="available">Available</SelectItem>
+              <SelectItem value="occupied">Occupied</SelectItem>
+              <SelectItem value="maintenance">Maintenance</SelectItem>
+              <SelectItem value="cleaning">Cleaning</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={occupancyFilter} onValueChange={setOccupancyFilter}>
+            <SelectTrigger className="w-36 bg-card border-border"><SelectValue placeholder="Fill" /></SelectTrigger>
+            <SelectContent className="bg-card border-border">
+              <SelectItem value="all">Any fill</SelectItem>
+              <SelectItem value="empty">Empty</SelectItem>
+              <SelectItem value="partial">Partial</SelectItem>
+              <SelectItem value="full">Full</SelectItem>
             </SelectContent>
           </Select>
         </div>

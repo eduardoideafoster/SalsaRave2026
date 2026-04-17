@@ -233,11 +233,15 @@ export function StatisticsTab() {
             <div>
               <p className="text-sm font-medium text-muted-foreground">Occupancy</p>
               <p className="text-3xl font-bold text-blue-400 mt-2">
-                {stats.guestRoomsTotal > 0
-                  ? `${((stats.guestRoomsBooked / stats.guestRoomsTotal) * 100).toFixed(0)}%`
-                  : '—'}
+                {(() => {
+                  const total = stats.guestRoomsTotal + stats.staffRoomsTotal
+                  const used = stats.guestRoomsBooked + stats.staffRoomsTotal
+                  return total > 0 ? `${((used / total) * 100).toFixed(0)}%` : '—'
+                })()}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">of guest rooms booked</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.guestRoomsBooked + stats.staffRoomsTotal} of {stats.guestRoomsTotal + stats.staffRoomsTotal} rooms used (guests + staff)
+              </p>
             </div>
             <div className="h-14 w-14 rounded-lg bg-blue-500/10 flex items-center justify-center">
               <BedDouble className="size-6 text-blue-400" />

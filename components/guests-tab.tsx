@@ -17,9 +17,18 @@ type GuestSortKey =
   | 'country'
   | 'hotel'
   | 'room'
+  | 'room_type'
   | 'ticket_type'
   | 'check_in_date'
   | 'check_out_date'
+
+const roomTypeLabels: Record<string, string> = {
+  single: 'Single',
+  double: 'Double',
+  triple_3beds: 'Triple',
+  triple_double_single: 'Triple (d+s)',
+  quadruple: 'Quad',
+}
 import {
   Dialog,
   DialogContent,
@@ -71,6 +80,13 @@ export function GuestsTab() {
   const [assignGuest, setAssignGuest] = useState<Guest | null>(null)
   const [detailGuest, setDetailGuest] = useState<Guest | null>(null)
   const [sort, setSort] = useState<SortState<GuestSortKey>>({ key: 'order_code', dir: 'asc' })
+  // Column filters. 'all' = no filter applied for that column.
+  const [hotelFilter, setHotelFilter] = useState<string>('all')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [countryFilter, setCountryFilter] = useState<string>('all')
+  const [ticketFilter, setTicketFilter] = useState<string>('all')
+  const [roomTypeFilter, setRoomTypeFilter] = useState<string>('all')
+  const [assignFilter, setAssignFilter] = useState<string>('all') // all | assigned | unassigned
   const [newGuest, setNewGuest] = useState({
     order_code: '',
     full_name: '',
@@ -99,21 +115,54 @@ export function GuestsTab() {
     fetchAll()
   }, [fetchAll])
 
-  const filteredGuests = guests.filter(
-    (guest) =>
-      guest.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      guest.order_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      guest.country?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      guest.ticket_type.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredGuests = guests.filter((guest) => {
+    const q = searchQuery.toLowerCase()
+    const matchesSearch =
+      !q ||
+      guest.full_name.toLowerCase().includes(q) ||
+      guest.order_code.toLowerCase().includes(q) ||
+      guest.country?.toLowerCase().includes(q) ||
+      guest.ticket_type.toLowerCase().includes(q)
+    const matchesHotel =
+      hotelFilter === 'all' ||
+      (hotelFilter === 'none' ? guest.hotel === null : guest.hotel === hotelFilter)
+    const matchesRole = roleFilter === 'all' || guest.role === roleFilter
+    const matchesCountry = countryFilter === 'all' || guest.country === countryFilter
+    const matchesTicket = ticketFilter === 'all' || guest.ticket_type === ticketFilter
+    const matchesRoomType = (() => {
+      if (roomTypeFilter === 'all') return true
+      if (roomTypeFilter === 'unassigned') return !roomByGuestId.has(guest.id)
+      return roomTypeByGuestId.get(guest.id) === roomTypeFilter
+    })()
+    const matchesAssign =
+      assignFilter === 'all' ||
+      (assignFilter === 'assigned' ? roomByGuestId.has(guest.id) : !roomByGuestId.has(guest.id))
+    return (
+      matchesSearch &&
+      matchesHotel &&
+      matchesRole &&
+      matchesCountry &&
+      matchesTicket &&
+      matchesRoomType &&
+      matchesAssign
+    )
+  })
 
-  // Lookup: guest_id -> assigned room_number (via active booking)
+  // Lookup: guest_id -> assigned room_number + room_type (via active booking)
   const roomByGuestId = new Map<string, string>()
+  const roomTypeByGuestId = new Map<string, Room['room_type']>()
   for (const b of bookings) {
     if (b.status === 'cancelled') continue
     const room = rooms.find((r) => r.id === b.room_id)
-    if (room) roomByGuestId.set(b.guest_id, room.room_number)
+    if (room) {
+      roomByGuestId.set(b.guest_id, room.room_number)
+      roomTypeByGuestId.set(b.guest_id, room.room_type)
+    }
   }
+
+  // Options for filter dropdowns (derived from current data)
+  const countryOptions = Array.from(new Set(guests.map((g) => g.country).filter(Boolean))).sort() as string[]
+  const ticketOptions = Array.from(new Set(guests.map((g) => g.ticket_type))).sort()
 
   // Apply sort to the filtered list
   const sortedGuests = [...filteredGuests].sort(
@@ -121,8 +170,9 @@ export function GuestsTab() {
       switch (sort.key) {
         case 'room':
           const rn = roomByGuestId.get(g.id)
-          // Sort by numeric room# when available so 101 < 102 < ... < 638
           return rn ? Number(rn) : null
+        case 'room_type':
+          return roomTypeByGuestId.get(g.id) ?? null
         default:
           return (g as Record<string, unknown>)[sort.key] as string | number | null
       }
@@ -174,9 +224,17 @@ export function GuestsTab() {
     )
   }
 
+  const anyFilter =
+    hotelFilter !== 'all' ||
+    roleFilter !== 'all' ||
+    countryFilter !== 'all' ||
+    ticketFilter !== 'all' ||
+    roomTypeFilter !== 'all' ||
+    assignFilter !== 'all'
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="relative w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
@@ -187,7 +245,7 @@ export function GuestsTab() {
           />
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">{sortedGuests.length} guests</span>
+          <span className="text-sm text-muted-foreground">{sortedGuests.length} of {guests.length} guests</span>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -272,6 +330,78 @@ export function GuestsTab() {
         </div>
       </div>
 
+      {/* Filter bar */}
+      <div className="flex items-center gap-2 flex-wrap bg-secondary/20 border border-border rounded-md p-2">
+        <Select value={hotelFilter} onValueChange={setHotelFilter}>
+          <SelectTrigger className="w-32 h-8 text-sm bg-card border-border"><SelectValue placeholder="Hotel" /></SelectTrigger>
+          <SelectContent className="bg-card border-border">
+            <SelectItem value="all">All hotels</SelectItem>
+            <SelectItem value="H3">H3</SelectItem>
+            <SelectItem value="H4">H4</SelectItem>
+            <SelectItem value="none">No hotel (RAVEPASS)</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-32 h-8 text-sm bg-card border-border"><SelectValue placeholder="Role" /></SelectTrigger>
+          <SelectContent className="bg-card border-border">
+            <SelectItem value="all">All roles</SelectItem>
+            {roles.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={countryFilter} onValueChange={setCountryFilter}>
+          <SelectTrigger className="w-40 h-8 text-sm bg-card border-border"><SelectValue placeholder="Country" /></SelectTrigger>
+          <SelectContent className="bg-card border-border max-h-72">
+            <SelectItem value="all">All countries</SelectItem>
+            {countryOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={ticketFilter} onValueChange={setTicketFilter}>
+          <SelectTrigger className="w-44 h-8 text-sm bg-card border-border"><SelectValue placeholder="Ticket" /></SelectTrigger>
+          <SelectContent className="bg-card border-border max-h-72">
+            <SelectItem value="all">All tickets</SelectItem>
+            {ticketOptions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={roomTypeFilter} onValueChange={setRoomTypeFilter}>
+          <SelectTrigger className="w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder="Room Type" /></SelectTrigger>
+          <SelectContent className="bg-card border-border">
+            <SelectItem value="all">All room types</SelectItem>
+            <SelectItem value="single">Single</SelectItem>
+            <SelectItem value="double">Double</SelectItem>
+            <SelectItem value="triple_3beds">Triple (3 beds)</SelectItem>
+            <SelectItem value="triple_double_single">Triple (d+s)</SelectItem>
+            <SelectItem value="quadruple">Quadruple</SelectItem>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={assignFilter} onValueChange={setAssignFilter}>
+          <SelectTrigger className="w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder="Assignment" /></SelectTrigger>
+          <SelectContent className="bg-card border-border">
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="assigned">Assigned</SelectItem>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+          </SelectContent>
+        </Select>
+        {anyFilter && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              setHotelFilter('all')
+              setRoleFilter('all')
+              setCountryFilter('all')
+              setTicketFilter('all')
+              setRoomTypeFilter('all')
+              setAssignFilter('all')
+            }}
+          >
+            <X className="size-3 mr-1" />
+            Clear filters
+          </Button>
+        )}
+      </div>
+
       <div className="rounded-lg border border-border overflow-hidden">
         <table className="w-full">
           <thead className="bg-secondary">
@@ -282,6 +412,7 @@ export function GuestsTab() {
               <SortHeader label="Country" sortKey="country" state={sort} onSort={setSort} />
               <SortHeader label="Hotel" sortKey="hotel" state={sort} onSort={setSort} />
               <SortHeader label="Room" sortKey="room" state={sort} onSort={setSort} />
+              <SortHeader label="Room Type" sortKey="room_type" state={sort} onSort={setSort} />
               <SortHeader label="Ticket Type" sortKey="ticket_type" state={sort} onSort={setSort} />
               <SortHeader label="Check-in" sortKey="check_in_date" state={sort} onSort={setSort} />
               <SortHeader label="Check-out" sortKey="check_out_date" state={sort} onSort={setSort} />
@@ -342,6 +473,12 @@ export function GuestsTab() {
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {roomByGuestId.get(guest.id) ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {(() => {
+                        const rt = roomTypeByGuestId.get(guest.id)
+                        return rt ? <span className="text-muted-foreground">{roomTypeLabels[rt]}</span> : <span className="text-muted-foreground">—</span>
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <Select
@@ -443,6 +580,14 @@ export function GuestsTab() {
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-xs">
+                      {(() => {
+                        const rt = roomTypeByGuestId.get(guest.id)
+                        return rt
+                          ? <span className="text-muted-foreground">{roomTypeLabels[rt]}</span>
+                          : <span className="text-muted-foreground">—</span>
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{guest.ticket_type}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {guest.check_in_date ? format(new Date(guest.check_in_date), 'MMM d') : '-'}
@@ -476,7 +621,7 @@ export function GuestsTab() {
             ))}
             {sortedGuests.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={11} className="px-4 py-8 text-center text-muted-foreground">
                   No guests found
                 </td>
               </tr>
