@@ -5,8 +5,19 @@ import { createClient } from '@/lib/supabase/client'
 import { Room, Guest, Booking } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Search, Pencil, Trash2, X, Check, Users, Wrench } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, X, Check, Users, Music } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
+import { SortHeader, compareBy, SortState } from '@/components/sort-header'
+
+type RoomSortKey =
+  | 'room_number'
+  | 'hotel'
+  | 'room_type'
+  | 'capacity'
+  | 'available_from'
+  | 'occupants'
+  | 'status'
+  | 'is_staff'
 import {
   Dialog,
   DialogContent,
@@ -75,6 +86,7 @@ export function RoomsTab() {
 
   const [guests, setGuests] = useState<Guest[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [sort, setSort] = useState<SortState<RoomSortKey>>({ key: 'room_number', dir: 'asc' })
 
   const supabase = createClient()
 
@@ -116,6 +128,27 @@ export function RoomsTab() {
       (useFilter === 'guest' && !room.is_staff)
     return matchesSearch && matchesHotel && matchesUse
   })
+
+  const sortedRooms = [...filteredRooms].sort(
+    compareBy((r) => {
+      switch (sort.key) {
+        case 'room_number':
+          return Number(r.room_number)
+        case 'occupants':
+          return occupantsByRoom.get(r.id)?.length ?? 0
+        case 'is_staff':
+          return r.is_staff ? 1 : 0
+        case 'status':
+          // Derived display status (occupied if any occupants, unless manually set)
+          const occ = occupantsByRoom.get(r.id)?.length ?? 0
+          return r.status === 'maintenance' || r.status === 'cleaning'
+            ? r.status
+            : occ > 0 ? 'occupied' : 'available'
+        default:
+          return (r as Record<string, unknown>)[sort.key] as string | number | null
+      }
+    }, sort.dir),
+  )
 
   // Room summary stats
   const h3Rooms = rooms.filter(r => r.hotel === 'H3')
@@ -246,7 +279,7 @@ export function RoomsTab() {
           </Select>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">{filteredRooms.length} rooms</span>
+          <span className="text-sm text-muted-foreground">{sortedRooms.length} rooms</span>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -352,19 +385,19 @@ export function RoomsTab() {
         <table className="w-full">
           <thead className="bg-secondary">
             <tr>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Room #</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hotel</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Type</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Capacity</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Available From</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Occupants</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Use</th>
+              <SortHeader label="Room #" sortKey="room_number" state={sort} onSort={setSort} />
+              <SortHeader label="Hotel" sortKey="hotel" state={sort} onSort={setSort} />
+              <SortHeader label="Type" sortKey="room_type" state={sort} onSort={setSort} />
+              <SortHeader label="Capacity" sortKey="capacity" state={sort} onSort={setSort} />
+              <SortHeader label="Available From" sortKey="available_from" state={sort} onSort={setSort} />
+              <SortHeader label="Occupants" sortKey="occupants" state={sort} onSort={setSort} />
+              <SortHeader label="Status" sortKey="status" state={sort} onSort={setSort} />
+              <SortHeader label="Use" sortKey="is_staff" state={sort} onSort={setSort} />
               <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {filteredRooms.map((room) => (
+            {sortedRooms.map((room) => (
               <tr key={room.id} className="bg-card hover:bg-secondary/50 transition-colors">
                 {editingId === room.id ? (
                   <>
@@ -536,7 +569,7 @@ export function RoomsTab() {
                           aria-label="Staff room"
                         />
                         <span className={`inline-flex items-center gap-1 ${room.is_staff ? 'text-amber-400' : 'text-muted-foreground'}`}>
-                          {room.is_staff ? <Wrench className="size-3" /> : <Users className="size-3" />}
+                          {room.is_staff ? <Music className="size-3" /> : <Users className="size-3" />}
                           {room.is_staff ? 'Staff' : 'Guest'}
                         </span>
                       </label>
@@ -565,7 +598,7 @@ export function RoomsTab() {
                 )}
               </tr>
             ))}
-            {filteredRooms.length === 0 && (
+            {sortedRooms.length === 0 && (
               <tr>
                 <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
                   No rooms found

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Guest, Room, Booking } from '@/lib/types'
 import { Spinner } from '@/components/ui/spinner'
-import { Users, MapPin, Ticket, Calendar, BedDouble, Wrench } from 'lucide-react'
+import { Users, MapPin, Ticket, Calendar, BedDouble, Music } from 'lucide-react'
 
 interface StatCardProps {
   title: string
@@ -186,59 +186,74 @@ export function StatisticsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Rooms Remaining (primary block) */}
+      {/* Rooms Remaining — global + per-hotel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-xl border border-emerald-500/40 p-6 lg:col-span-1">
+        <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-xl border border-emerald-500/40 p-6">
           <div className="flex items-center gap-2 text-emerald-400 mb-2">
             <BedDouble className="size-5" />
-            <span className="text-sm font-semibold uppercase tracking-wider">Rooms Remaining</span>
+            <span className="text-sm font-semibold uppercase tracking-wider">Total Remaining</span>
           </div>
           <div className="text-7xl font-black text-emerald-400 leading-none">
             {stats.guestRoomsRemaining}
           </div>
           <div className="mt-3 text-sm text-muted-foreground">
-            of <span className="text-foreground font-semibold">{stats.guestRoomsTotal}</span> guest rooms available to book
+            of <span className="text-foreground font-semibold">{stats.guestRoomsTotal}</span> guest rooms · {stats.guestRoomsBooked} booked
           </div>
         </div>
-        <div className="bg-card rounded-xl border border-border p-6">
+        <div className="bg-gradient-to-br from-slate-500/15 to-slate-500/5 rounded-xl border border-slate-500/40 p-6">
+          <div className="flex items-center gap-2 text-slate-300 mb-2">
+            <BedDouble className="size-5" />
+            <span className="text-sm font-semibold uppercase tracking-wider">H3 — Standard</span>
+          </div>
+          <div className="text-7xl font-black text-slate-200 leading-none">
+            {stats.h3Remaining}
+          </div>
+          <div className="mt-3 text-sm text-muted-foreground">
+            of <span className="text-foreground font-semibold">{stats.h3GuestTotal}</span> · {stats.h3Booked} booked
+          </div>
+        </div>
+        <div className="bg-gradient-to-br from-amber-500/20 to-amber-500/5 rounded-xl border border-amber-500/40 p-6">
+          <div className="flex items-center gap-2 text-amber-400 mb-2">
+            <BedDouble className="size-5" />
+            <span className="text-sm font-semibold uppercase tracking-wider">H4 — Upgraded</span>
+          </div>
+          <div className="text-7xl font-black text-amber-400 leading-none">
+            {stats.h4Remaining}
+          </div>
+          <div className="mt-3 text-sm text-muted-foreground">
+            of <span className="text-foreground font-semibold">{stats.h4GuestTotal}</span> · {stats.h4Booked} booked
+          </div>
+        </div>
+      </div>
+
+      {/* Staff rooms + occupancy % (secondary) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Booked</p>
-              <p className="text-4xl font-bold text-blue-400 mt-2">{stats.guestRoomsBooked}</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-sm font-medium text-muted-foreground">Occupancy</p>
+              <p className="text-3xl font-bold text-blue-400 mt-2">
                 {stats.guestRoomsTotal > 0
-                  ? `${((stats.guestRoomsBooked / stats.guestRoomsTotal) * 100).toFixed(0)}% occupancy`
+                  ? `${((stats.guestRoomsBooked / stats.guestRoomsTotal) * 100).toFixed(0)}%`
                   : '—'}
               </p>
+              <p className="text-xs text-muted-foreground mt-1">of guest rooms booked</p>
             </div>
-            <div className="h-16 w-16 rounded-lg bg-blue-500/10 flex items-center justify-center">
-              <BedDouble className="size-7 text-blue-400" />
-            </div>
-          </div>
-          <div className="mt-4 pt-4 border-t border-border space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">H3 remaining</span>
-              <span className="text-foreground font-semibold">{stats.h3Remaining} / {stats.h3GuestTotal}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">H4 remaining</span>
-              <span className="text-foreground font-semibold">{stats.h4Remaining} / {stats.h4GuestTotal}</span>
+            <div className="h-14 w-14 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <BedDouble className="size-6 text-blue-400" />
             </div>
           </div>
         </div>
-        <div className="bg-card rounded-xl border border-border p-6">
+        <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Staff Rooms</p>
-              <p className="text-4xl font-bold text-amber-400 mt-2">{stats.staffRoomsTotal}</p>
+              <p className="text-3xl font-bold text-amber-400 mt-2">{stats.staffRoomsTotal}</p>
               <p className="text-xs text-muted-foreground mt-1">of 30 target</p>
             </div>
-            <div className="h-16 w-16 rounded-lg bg-amber-500/10 flex items-center justify-center">
-              <Wrench className="size-7 text-amber-400" />
+            <div className="h-14 w-14 rounded-lg bg-amber-500/10 flex items-center justify-center">
+              <Music className="size-6 text-amber-400" />
             </div>
-          </div>
-          <div className="mt-4 pt-4 border-t border-border text-xs text-muted-foreground">
-            Reserved for staff — not counted in guest-room totals.
           </div>
         </div>
       </div>

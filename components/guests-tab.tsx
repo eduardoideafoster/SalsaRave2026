@@ -7,6 +7,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Search, Pencil, Trash2, X, Check, BedDouble } from 'lucide-react'
 import { AssignRoomDialog } from '@/components/assign-room-dialog'
+import { GuestDetailDialog } from '@/components/guest-detail-dialog'
+import { SortHeader, compareBy, SortState } from '@/components/sort-header'
+
+type GuestSortKey =
+  | 'order_code'
+  | 'full_name'
+  | 'role'
+  | 'country'
+  | 'hotel'
+  | 'room'
+  | 'ticket_type'
+  | 'check_in_date'
+  | 'check_out_date'
 import {
   Dialog,
   DialogContent,
@@ -56,6 +69,8 @@ export function GuestsTab() {
   const [editForm, setEditForm] = useState<Partial<Guest>>({})
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [assignGuest, setAssignGuest] = useState<Guest | null>(null)
+  const [detailGuest, setDetailGuest] = useState<Guest | null>(null)
+  const [sort, setSort] = useState<SortState<GuestSortKey>>({ key: 'order_code', dir: 'asc' })
   const [newGuest, setNewGuest] = useState({
     order_code: '',
     full_name: '',
@@ -99,6 +114,20 @@ export function GuestsTab() {
     const room = rooms.find((r) => r.id === b.room_id)
     if (room) roomByGuestId.set(b.guest_id, room.room_number)
   }
+
+  // Apply sort to the filtered list
+  const sortedGuests = [...filteredGuests].sort(
+    compareBy((g) => {
+      switch (sort.key) {
+        case 'room':
+          const rn = roomByGuestId.get(g.id)
+          // Sort by numeric room# when available so 101 < 102 < ... < 638
+          return rn ? Number(rn) : null
+        default:
+          return (g as Record<string, unknown>)[sort.key] as string | number | null
+      }
+    }, sort.dir),
+  )
 
   const handleAddGuest = async () => {
     if (!newGuest.order_code || !newGuest.full_name) return
@@ -158,7 +187,7 @@ export function GuestsTab() {
           />
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">{filteredGuests.length} guests</span>
+          <span className="text-sm text-muted-foreground">{sortedGuests.length} guests</span>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -247,20 +276,20 @@ export function GuestsTab() {
         <table className="w-full">
           <thead className="bg-secondary">
             <tr>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Order</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Role</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Country</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hotel</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Room</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ticket Type</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Check-in</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Check-out</th>
+              <SortHeader label="Order" sortKey="order_code" state={sort} onSort={setSort} />
+              <SortHeader label="Name" sortKey="full_name" state={sort} onSort={setSort} />
+              <SortHeader label="Role" sortKey="role" state={sort} onSort={setSort} />
+              <SortHeader label="Country" sortKey="country" state={sort} onSort={setSort} />
+              <SortHeader label="Hotel" sortKey="hotel" state={sort} onSort={setSort} />
+              <SortHeader label="Room" sortKey="room" state={sort} onSort={setSort} />
+              <SortHeader label="Ticket Type" sortKey="ticket_type" state={sort} onSort={setSort} />
+              <SortHeader label="Check-in" sortKey="check_in_date" state={sort} onSort={setSort} />
+              <SortHeader label="Check-out" sortKey="check_out_date" state={sort} onSort={setSort} />
               <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {filteredGuests.map((guest) => (
+            {sortedGuests.map((guest) => (
               <tr key={guest.id} className="bg-card hover:bg-secondary/50 transition-colors">
                 {editingId === guest.id ? (
                   <>
@@ -374,7 +403,14 @@ export function GuestsTab() {
                 ) : (
                   <>
                     <td className="px-4 py-3 text-sm font-mono text-muted-foreground">{guest.order_code}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-foreground">{guest.full_name}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <button
+                        onClick={() => setDetailGuest(guest)}
+                        className="font-medium text-foreground hover:text-primary hover:underline transition-colors text-left"
+                      >
+                        {guest.full_name}
+                      </button>
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${roleColors[guest.role]}`}>
                         {guest.role}
@@ -438,7 +474,7 @@ export function GuestsTab() {
                 )}
               </tr>
             ))}
-            {filteredGuests.length === 0 && (
+            {sortedGuests.length === 0 && (
               <tr>
                 <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
                   No guests found
@@ -456,6 +492,17 @@ export function GuestsTab() {
         open={assignGuest !== null}
         onOpenChange={(open) => !open && setAssignGuest(null)}
         onChanged={fetchAll}
+      />
+
+      <GuestDetailDialog
+        guest={detailGuest}
+        rooms={rooms}
+        guests={guests}
+        bookings={bookings}
+        open={detailGuest !== null}
+        onOpenChange={(open) => !open && setDetailGuest(null)}
+        onChanged={fetchAll}
+        onRequestChangeRoom={(g) => setAssignGuest(g)}
       />
     </div>
   )

@@ -57,16 +57,18 @@ export function AvailabilityTab() {
     return eachDayOfInterval({ start: EVENT_START, end: EVENT_END })
   }, [])
 
-  // Calculate availability by date
+  // Calculate availability by date — only guest rooms count; staff rooms
+  // are held for staff and never shown as "available" to guests.
+  const guestRooms = useMemo(() => rooms.filter((r) => !r.is_staff), [rooms])
+
   const availabilityByDate = useMemo((): AvailabilityByDate[] => {
     return days.map((date) => {
-      // Rooms available on this date (available_from <= date)
-      const h3RoomsAvailable = rooms.filter(r => 
-        r.hotel === 'H3' && 
+      const h3RoomsAvailable = guestRooms.filter(r =>
+        r.hotel === 'H3' &&
         !isAfter(parseISO(r.available_from), date)
       )
-      const h4RoomsAvailable = rooms.filter(r => 
-        r.hotel === 'H4' && 
+      const h4RoomsAvailable = guestRooms.filter(r =>
+        r.hotel === 'H4' &&
         !isAfter(parseISO(r.available_from), date)
       )
 
@@ -91,18 +93,18 @@ export function AvailabilityTab() {
         h4Total: h4RoomsAvailable.length,
       }
     })
-  }, [days, rooms, bookings])
+  }, [days, guestRooms, bookings])
 
-  // Room type breakdown
+  // Room type breakdown (guest rooms only)
   const h3Breakdown = useMemo(() => {
-    const h3 = rooms.filter(r => r.hotel === 'H3')
+    const h3 = guestRooms.filter(r => r.hotel === 'H3')
     return {
       double: h3.filter(r => r.room_type === 'double').length,
       triple_3beds: h3.filter(r => r.room_type === 'triple_3beds').length,
       triple_double_single: h3.filter(r => r.room_type === 'triple_double_single').length,
       quadruple: h3.filter(r => r.room_type === 'quadruple').length,
     }
-  }, [rooms])
+  }, [guestRooms])
 
   const isRoomAvailableOnDate = (room: Room, date: Date): boolean => {
     return !isAfter(parseISO(room.available_from), date)
@@ -117,7 +119,7 @@ export function AvailabilityTab() {
     })
   }
 
-  const filteredRooms = rooms.filter(r => hotelFilter === 'all' || r.hotel === hotelFilter)
+  const filteredRooms = guestRooms.filter(r => hotelFilter === 'all' || r.hotel === hotelFilter)
 
   if (loading) {
     return (
@@ -153,7 +155,12 @@ export function AvailabilityTab() {
       {/* Room Inventory Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-card rounded-lg border border-border p-4">
-          <h3 className="font-semibold text-foreground mb-3">H3 - Standard Hotel (230 rooms max)</h3>
+          <h3 className="font-semibold text-foreground mb-3">
+            H3 — Standard Hotel ({guestRooms.filter(r => r.hotel === 'H3').length} guest rooms
+            {rooms.filter(r => r.hotel === 'H3' && r.is_staff).length > 0 && (
+              <span className="text-muted-foreground font-normal"> · {rooms.filter(r => r.hotel === 'H3' && r.is_staff).length} reserved for staff</span>
+            )})
+          </h3>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Double (can be single):</span>
@@ -174,11 +181,16 @@ export function AvailabilityTab() {
           </div>
         </div>
         <div className="bg-card rounded-lg border border-border p-4">
-          <h3 className="font-semibold text-foreground mb-3">H4 - Upgraded Hotel (50 rooms max)</h3>
+          <h3 className="font-semibold text-foreground mb-3">
+            H4 — Upgraded Hotel ({guestRooms.filter(r => r.hotel === 'H4').length} guest rooms
+            {rooms.filter(r => r.hotel === 'H4' && r.is_staff).length > 0 && (
+              <span className="text-muted-foreground font-normal"> · {rooms.filter(r => r.hotel === 'H4' && r.is_staff).length} reserved for staff</span>
+            )})
+          </h3>
           <div className="text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Double (can be single):</span>
-              <span className="text-foreground">{rooms.filter(r => r.hotel === 'H4').length}</span>
+              <span className="text-foreground">{guestRooms.filter(r => r.hotel === 'H4').length}</span>
             </div>
           </div>
           <div className="mt-3 text-xs text-muted-foreground">
@@ -316,7 +328,7 @@ export function AvailabilityTab() {
       </div>
 
       <div className="text-sm text-muted-foreground">
-        Total: {rooms.length} rooms (H3: {rooms.filter(r => r.hotel === 'H3').length}, H4: {rooms.filter(r => r.hotel === 'H4').length})
+        Guest rooms: {guestRooms.length} (H3: {guestRooms.filter(r => r.hotel === 'H3').length}, H4: {guestRooms.filter(r => r.hotel === 'H4').length}) · Staff-reserved: {rooms.length - guestRooms.length}
       </div>
     </div>
   )
