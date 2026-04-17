@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Guest } from '@/lib/types'
+import { Guest, Room, Booking } from '@/lib/types'
 import { Spinner } from '@/components/ui/spinner'
-import { Users, MapPin, Ticket, Calendar } from 'lucide-react'
+import { Users, MapPin, Ticket, Calendar, BedDouble, Wrench } from 'lucide-react'
 
 interface StatCardProps {
   title: string
@@ -58,19 +58,27 @@ function DistributionBar({ label, count, total, color }: DistributionBarProps) {
 
 export function StatisticsTab() {
   const [guests, setGuests] = useState<Guest[]>([])
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
 
-  const fetchGuests = useCallback(async () => {
-    const { data } = await supabase.from('guests').select('*')
-    if (data) setGuests(data)
+  const fetchAll = useCallback(async () => {
+    const [g, r, b] = await Promise.all([
+      supabase.from('guests').select('*'),
+      supabase.from('rooms').select('*'),
+      supabase.from('bookings').select('*'),
+    ])
+    if (g.data) setGuests(g.data)
+    if (r.data) setRooms(r.data)
+    if (b.data) setBookings(b.data)
     setLoading(false)
   }, [supabase])
 
   useEffect(() => {
-    fetchGuests()
-  }, [fetchGuests])
+    fetchAll()
+  }, [fetchAll])
 
   const stats = useMemo(() => {
     const total = guests.length
@@ -124,6 +132,19 @@ export function StatisticsTab() {
     
     const guestsInSharedRooms = guests.length - singleRooms
 
+    // Room occupancy: a room is "booked" if any active booking points at it.
+    const bookedRoomIds = new Set(
+      bookings.filter((b) => b.status !== 'cancelled').map((b) => b.room_id),
+    )
+    const guestRooms = rooms.filter((r) => !r.is_staff)
+    const staffRooms = rooms.filter((r) => r.is_staff)
+    const guestRoomsBooked = guestRooms.filter((r) => bookedRoomIds.has(r.id)).length
+    const guestRoomsRemaining = guestRooms.length - guestRoomsBooked
+    const h3Guest = guestRooms.filter((r) => r.hotel === 'H3')
+    const h4Guest = guestRooms.filter((r) => r.hotel === 'H4')
+    const h3Booked = h3Guest.filter((r) => bookedRoomIds.has(r.id)).length
+    const h4Booked = h4Guest.filter((r) => bookedRoomIds.has(r.id)).length
+
     return {
       total,
       leaders,
@@ -142,8 +163,18 @@ export function StatisticsTab() {
       doubleRooms,
       tripleRooms,
       guestsInSharedRooms,
+      guestRoomsTotal: guestRooms.length,
+      guestRoomsBooked,
+      guestRoomsRemaining,
+      staffRoomsTotal: staffRooms.length,
+      h3GuestTotal: h3Guest.length,
+      h3Booked,
+      h3Remaining: h3Guest.length - h3Booked,
+      h4GuestTotal: h4Guest.length,
+      h4Booked,
+      h4Remaining: h4Guest.length - h4Booked,
     }
-  }, [guests])
+  }, [guests, rooms, bookings])
 
   if (loading) {
     return (
@@ -155,6 +186,63 @@ export function StatisticsTab() {
 
   return (
     <div className="space-y-6">
+      {/* Rooms Remaining (primary block) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-xl border border-emerald-500/40 p-6 lg:col-span-1">
+          <div className="flex items-center gap-2 text-emerald-400 mb-2">
+            <BedDouble className="size-5" />
+            <span className="text-sm font-semibold uppercase tracking-wider">Rooms Remaining</span>
+          </div>
+          <div className="text-7xl font-black text-emerald-400 leading-none">
+            {stats.guestRoomsRemaining}
+          </div>
+          <div className="mt-3 text-sm text-muted-foreground">
+            of <span className="text-foreground font-semibold">{stats.guestRoomsTotal}</span> guest rooms available to book
+          </div>
+        </div>
+        <div className="bg-card rounded-xl border border-border p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Booked</p>
+              <p className="text-4xl font-bold text-blue-400 mt-2">{stats.guestRoomsBooked}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.guestRoomsTotal > 0
+                  ? `${((stats.guestRoomsBooked / stats.guestRoomsTotal) * 100).toFixed(0)}% occupancy`
+                  : '—'}
+              </p>
+            </div>
+            <div className="h-16 w-16 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <BedDouble className="size-7 text-blue-400" />
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-border space-y-1 text-xs">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">H3 remaining</span>
+              <span className="text-foreground font-semibold">{stats.h3Remaining} / {stats.h3GuestTotal}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">H4 remaining</span>
+              <span className="text-foreground font-semibold">{stats.h4Remaining} / {stats.h4GuestTotal}</span>
+            </div>
+          </div>
+        </div>
+        <div className="bg-card rounded-xl border border-border p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Staff Rooms</p>
+              <p className="text-4xl font-bold text-amber-400 mt-2">{stats.staffRoomsTotal}</p>
+              <p className="text-xs text-muted-foreground mt-1">of 30 target</p>
+            </div>
+            <div className="h-16 w-16 rounded-lg bg-amber-500/10 flex items-center justify-center">
+              <Wrench className="size-7 text-amber-400" />
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-border text-xs text-muted-foreground">
+            Reserved for staff — not counted in guest-room totals.
+          </div>
+        </div>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
