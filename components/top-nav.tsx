@@ -23,21 +23,22 @@ export function TopNav({ activeTab, onTabChange }: TopNavProps) {
 
   return (
     <header className="border-b border-border bg-card">
-      <div className="flex items-center gap-8 px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center size-9 rounded-lg overflow-hidden">
+      <div className="flex items-center gap-3 sm:gap-8 px-3 sm:px-6 py-3 sm:py-4">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center justify-center size-8 sm:size-9 rounded-lg overflow-hidden">
             <Image src="/favicon.png" alt="SalsaRave 2026" width={36} height={36} priority />
           </div>
-          <h1 className="text-lg font-semibold tracking-tight text-foreground">SalsaRave 2026</h1>
+          <h1 className="hidden sm:block text-lg font-semibold tracking-tight text-foreground">SalsaRave 2026</h1>
         </div>
 
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-0.5 sm:gap-1 flex-1 sm:flex-none justify-around sm:justify-start">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
+              aria-label={tab.label}
               className={`
-                flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md
+                flex items-center gap-2 px-2.5 sm:px-4 py-2 text-sm font-medium rounded-md
                 transition-all duration-150 ease-out
                 ${activeTab === tab.id
                   ? 'bg-primary text-primary-foreground shadow-md shadow-primary/30'
@@ -46,18 +47,18 @@ export function TopNav({ activeTab, onTabChange }: TopNavProps) {
               `}
             >
               {tab.icon}
-              {tab.label}
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
         </nav>
 
-        {/* Language toggle — pushes right */}
-        <div className="ml-auto flex items-center gap-1 rounded-md border border-border bg-secondary/30 p-0.5">
-          <Globe className="size-3.5 text-muted-foreground ml-1" />
+        {/* Language toggle — pushes right on desktop */}
+        <div className="sm:ml-auto flex items-center gap-1 rounded-md border border-border bg-secondary/30 p-0.5 shrink-0">
+          <Globe className="hidden sm:block size-3.5 text-muted-foreground ml-1" />
           <button
             type="button"
             onClick={() => setLang('en')}
-            className={`px-2 py-1 text-xs rounded-md transition-colors ${
+            className={`px-1.5 sm:px-2 py-1 text-xs rounded-md transition-colors ${
               lang === 'en' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
             aria-pressed={lang === 'en'}
@@ -67,7 +68,7 @@ export function TopNav({ activeTab, onTabChange }: TopNavProps) {
           <button
             type="button"
             onClick={() => setLang('es')}
-            className={`px-2 py-1 text-xs rounded-md transition-colors ${
+            className={`px-1.5 sm:px-2 py-1 text-xs rounded-md transition-colors ${
               lang === 'es' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
             aria-pressed={lang === 'es'}
