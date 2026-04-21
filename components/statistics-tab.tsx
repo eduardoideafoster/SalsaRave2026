@@ -16,14 +16,14 @@ interface StatCardProps {
 
 function StatCard({ title, value, subtitle, icon, color }: StatCardProps) {
   return (
-    <div className="bg-card rounded-lg border border-border p-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-3xl font-bold text-foreground mt-2">{value}</p>
-          {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
+    <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs sm:text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-foreground mt-1.5 sm:mt-2">{value}</p>
+          {subtitle && <p className="text-xs sm:text-sm text-muted-foreground mt-1 truncate">{subtitle}</p>}
         </div>
-        <div className={`p-3 rounded-lg ${color}`}>
+        <div className={`p-2 sm:p-3 rounded-lg shrink-0 ${color}`}>
           {icon}
         </div>
       </div>
@@ -185,54 +185,54 @@ export function StatisticsTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Rooms Remaining — global + per-hotel */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-xl border border-emerald-500/40 p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-xl border border-emerald-500/40 p-4 sm:p-6">
           <div className="flex items-center gap-2 text-emerald-400 mb-2">
             <BedDouble className="size-5" />
-            <span className="text-sm font-semibold uppercase tracking-wider">Total Remaining</span>
+            <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider">Total Remaining</span>
           </div>
-          <div className="text-7xl font-black text-emerald-400 leading-none">
+          <div className="text-5xl sm:text-7xl font-black text-emerald-400 leading-none">
             {stats.guestRoomsRemaining}
           </div>
-          <div className="mt-3 text-sm text-muted-foreground">
+          <div className="mt-3 text-xs sm:text-sm text-muted-foreground">
             of <span className="text-foreground font-semibold">{stats.guestRoomsTotal}</span> guest rooms · {stats.guestRoomsBooked} booked
           </div>
         </div>
-        <div className="bg-gradient-to-br from-slate-500/15 to-slate-500/5 rounded-xl border border-slate-500/40 p-6">
+        <div className="bg-gradient-to-br from-slate-500/15 to-slate-500/5 rounded-xl border border-slate-500/40 p-4 sm:p-6">
           <div className="flex items-center gap-2 text-slate-300 mb-2">
             <BedDouble className="size-5" />
-            <span className="text-sm font-semibold uppercase tracking-wider">H3 — Standard</span>
+            <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider">H3 — Standard</span>
           </div>
-          <div className="text-7xl font-black text-slate-200 leading-none">
+          <div className="text-5xl sm:text-7xl font-black text-slate-200 leading-none">
             {stats.h3Remaining}
           </div>
-          <div className="mt-3 text-sm text-muted-foreground">
+          <div className="mt-3 text-xs sm:text-sm text-muted-foreground">
             of <span className="text-foreground font-semibold">{stats.h3GuestTotal}</span> · {stats.h3Booked} booked
           </div>
         </div>
-        <div className="bg-gradient-to-br from-amber-500/20 to-amber-500/5 rounded-xl border border-amber-500/40 p-6">
+        <div className="bg-gradient-to-br from-amber-500/20 to-amber-500/5 rounded-xl border border-amber-500/40 p-4 sm:p-6">
           <div className="flex items-center gap-2 text-amber-400 mb-2">
             <BedDouble className="size-5" />
-            <span className="text-sm font-semibold uppercase tracking-wider">H4 — Upgraded</span>
+            <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider">H4 — Upgraded</span>
           </div>
-          <div className="text-7xl font-black text-amber-400 leading-none">
+          <div className="text-5xl sm:text-7xl font-black text-amber-400 leading-none">
             {stats.h4Remaining}
           </div>
-          <div className="mt-3 text-sm text-muted-foreground">
+          <div className="mt-3 text-xs sm:text-sm text-muted-foreground">
             of <span className="text-foreground font-semibold">{stats.h4GuestTotal}</span> · {stats.h4Booked} booked
           </div>
         </div>
       </div>
 
       {/* Staff rooms + occupancy % (secondary) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-card rounded-xl border border-border p-5">
-          <div className="flex items-center justify-between">
-            <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        <div className="bg-card rounded-xl border border-border p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
               <p className="text-sm font-medium text-muted-foreground">Occupancy</p>
-              <p className="text-3xl font-bold text-blue-400 mt-2">
+              <p className="text-2xl sm:text-3xl font-bold text-blue-400 mt-2">
                 {(() => {
                   const total = stats.guestRoomsTotal + stats.staffRoomsTotal
                   const used = stats.guestRoomsBooked + stats.staffRoomsTotal
@@ -240,30 +240,30 @@ export function StatisticsTab() {
                 })()}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                {stats.guestRoomsBooked + stats.staffRoomsTotal} of {stats.guestRoomsTotal + stats.staffRoomsTotal} rooms used (guests + staff)
+                {stats.guestRoomsBooked + stats.staffRoomsTotal} of {stats.guestRoomsTotal + stats.staffRoomsTotal} rooms used
               </p>
             </div>
-            <div className="h-14 w-14 rounded-lg bg-blue-500/10 flex items-center justify-center">
-              <BedDouble className="size-6 text-blue-400" />
+            <div className="size-12 sm:size-14 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+              <BedDouble className="size-5 sm:size-6 text-blue-400" />
             </div>
           </div>
         </div>
-        <div className="bg-card rounded-xl border border-border p-5">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="bg-card rounded-xl border border-border p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
               <p className="text-sm font-medium text-muted-foreground">Core Tribe Rooms</p>
-              <p className="text-3xl font-bold text-amber-400 mt-2">{stats.staffRoomsTotal}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-amber-400 mt-2">{stats.staffRoomsTotal}</p>
               <p className="text-xs text-muted-foreground mt-1">of 30 target</p>
             </div>
-            <div className="h-14 w-14 rounded-lg bg-amber-500/10 flex items-center justify-center">
-              <Music className="size-6 text-amber-400" />
+            <div className="size-12 sm:size-14 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+              <Music className="size-5 sm:size-6 text-amber-400" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           title="Total Attendees"
           value={stats.total}
@@ -295,7 +295,7 @@ export function StatisticsTab() {
       </div>
 
       {/* Accommodation Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
         <StatCard
           title="With Accommodation"
           value={stats.withRoom}
@@ -340,10 +340,10 @@ export function StatisticsTab() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
         {/* Role Distribution */}
-        <div className="bg-card rounded-lg border border-border p-6">
-          <h3 className="text-lg font-semibold text-foreground mb-4">Role Distribution</h3>
+        <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Role Distribution</h3>
           <div className="space-y-4">
             <DistributionBar
               label="Leaders"
@@ -376,8 +376,8 @@ export function StatisticsTab() {
         </div>
 
         {/* Ticket Type Distribution */}
-        <div className="bg-card rounded-lg border border-border p-6">
-          <h3 className="text-lg font-semibold text-foreground mb-4">Ticket Types</h3>
+        <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Ticket Types</h3>
           <div className="space-y-4">
             {stats.tickets.map(([type, count], index) => (
               <DistributionBar
@@ -401,50 +401,50 @@ export function StatisticsTab() {
       </div>
 
       {/* Country Distribution */}
-      <div className="bg-card rounded-lg border border-border p-6">
-        <h3 className="text-lg font-semibold text-foreground mb-4">
+      <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">
           Country Distribution ({stats.countries.length} countries)
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
           {stats.countries.map(([country, count]) => (
             <div
               key={country}
-              className="flex items-center justify-between bg-secondary/50 rounded-lg px-4 py-3"
+              className="flex items-center justify-between bg-secondary/50 rounded-lg px-3 sm:px-4 py-2 sm:py-3"
             >
-              <span className="text-sm font-medium text-foreground truncate">{country}</span>
-              <span className="text-sm text-muted-foreground ml-2">{count}</span>
+              <span className="text-xs sm:text-sm font-medium text-foreground truncate">{country}</span>
+              <span className="text-xs sm:text-sm text-muted-foreground ml-2 shrink-0">{count}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Room Sharing Stats */}
-      <div className="bg-card rounded-lg border border-border p-6">
-        <h3 className="text-lg font-semibold text-foreground mb-4">Room Sharing Statistics</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+      <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Room Sharing Statistics</h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-6">
           <div className="text-center">
-            <p className="text-4xl font-bold text-foreground">{stats.uniqueOrders}</p>
-            <p className="text-sm text-muted-foreground mt-1">Total Orders</p>
+            <p className="text-2xl sm:text-4xl font-bold text-foreground">{stats.uniqueOrders}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Total Orders</p>
           </div>
           <div className="text-center">
-            <p className="text-4xl font-bold text-blue-400">{stats.singleRooms}</p>
-            <p className="text-sm text-muted-foreground mt-1">Single Bookings</p>
-            <p className="text-xs text-muted-foreground">(1 person/order)</p>
+            <p className="text-2xl sm:text-4xl font-bold text-blue-400">{stats.singleRooms}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Single Bookings</p>
+            <p className="text-xs text-muted-foreground hidden sm:block">(1 person/order)</p>
           </div>
           <div className="text-center">
-            <p className="text-4xl font-bold text-cyan-400">{stats.doubleRooms}</p>
-            <p className="text-sm text-muted-foreground mt-1">Double Bookings</p>
-            <p className="text-xs text-muted-foreground">(2 people/order)</p>
+            <p className="text-2xl sm:text-4xl font-bold text-cyan-400">{stats.doubleRooms}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Double Bookings</p>
+            <p className="text-xs text-muted-foreground hidden sm:block">(2 people/order)</p>
           </div>
           <div className="text-center">
-            <p className="text-4xl font-bold text-emerald-400">{stats.tripleRooms}</p>
-            <p className="text-sm text-muted-foreground mt-1">Triple Bookings</p>
-            <p className="text-xs text-muted-foreground">(3+ people/order)</p>
+            <p className="text-2xl sm:text-4xl font-bold text-emerald-400">{stats.tripleRooms}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Triple Bookings</p>
+            <p className="text-xs text-muted-foreground hidden sm:block">(3+ people/order)</p>
           </div>
-          <div className="text-center">
-            <p className="text-4xl font-bold text-primary">{stats.guestsInSharedRooms}</p>
-            <p className="text-sm text-muted-foreground mt-1">Sharing Rooms</p>
-            <p className="text-xs text-muted-foreground">(guests in shared)</p>
+          <div className="text-center col-span-2 md:col-span-1">
+            <p className="text-2xl sm:text-4xl font-bold text-primary">{stats.guestsInSharedRooms}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Sharing Rooms</p>
+            <p className="text-xs text-muted-foreground hidden sm:block">(guests in shared)</p>
           </div>
         </div>
       </div>

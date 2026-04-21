@@ -201,26 +201,25 @@ export function AvailabilityTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Summary Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">
-            Event: {format(EVENT_START, 'EEEE, MMMM d')} - {format(EVENT_END, 'EEEE, MMMM d, yyyy')}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-medium text-foreground truncate">
+            <span className="hidden sm:inline">Event: </span>
+            {format(EVENT_START, 'MMM d')} – {format(EVENT_END, 'MMM d, yyyy')}
           </span>
         </div>
-        <div className="flex items-center gap-4">
-          <Select value={hotelFilter} onValueChange={(v) => setHotelFilter(v as typeof hotelFilter)}>
-            <SelectTrigger className="w-40 bg-card border-border">
-              <SelectValue placeholder="Filter by hotel" />
-            </SelectTrigger>
-            <SelectContent className="bg-card border-border">
-              <SelectItem value="all">All Hotels</SelectItem>
-              <SelectItem value="H3">H3 (Standard)</SelectItem>
-              <SelectItem value="H4">H4 (Upgraded)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Select value={hotelFilter} onValueChange={(v) => setHotelFilter(v as typeof hotelFilter)}>
+          <SelectTrigger className="w-full sm:w-40 bg-card border-border">
+            <SelectValue placeholder="Filter by hotel" />
+          </SelectTrigger>
+          <SelectContent className="bg-card border-border">
+            <SelectItem value="all">All Hotels</SelectItem>
+            <SelectItem value="H3">H3 (Standard)</SelectItem>
+            <SelectItem value="H4">H4 (Upgraded)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Room Inventory Summary */}
@@ -267,14 +266,14 @@ export function AvailabilityTab() {
       </div>
 
       {/* Room occupancy per day — stacked bar */}
-      <div className="bg-card rounded-lg border border-border p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-foreground">
+      <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-3">
+          <h3 className="font-semibold text-foreground text-sm sm:text-base">
             Room occupancy per day {hotelFilter !== 'all' && `(${hotelFilter} only)`}
           </h3>
-          <span className="text-xs text-muted-foreground">Click a day in the table below for check-in / check-out details</span>
+          <span className="text-xs text-muted-foreground">Tap a day in the table below for details</span>
         </div>
-        <div className="h-72 w-full">
+        <div className="h-64 sm:h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={stackedData}
@@ -309,9 +308,9 @@ export function AvailabilityTab() {
       </div>
 
       {/* Availability Overview */}
-      <div className="bg-card rounded-lg border border-border p-4">
-        <h3 className="font-semibold text-foreground mb-4">
-          Daily Availability Overview <span className="text-xs text-muted-foreground font-normal">· click a row for details</span>
+      <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
+        <h3 className="font-semibold text-foreground mb-3 sm:mb-4 text-sm sm:text-base">
+          Daily Availability Overview <span className="text-xs text-muted-foreground font-normal block sm:inline">· tap a row for details</span>
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full min-w-max">
@@ -356,7 +355,7 @@ export function AvailabilityTab() {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-6 text-xs">
+      <div className="flex items-center gap-3 sm:gap-6 text-xs flex-wrap">
         <div className="flex items-center gap-2">
           <div className="size-3 rounded bg-emerald-500" />
           <span className="text-muted-foreground">Available</span>
