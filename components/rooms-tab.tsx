@@ -396,9 +396,9 @@ export function RoomsTab() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <div className="relative w-64">
+      <div className="flex items-start justify-between flex-wrap gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-4 w-full lg:w-auto">
+          <div className="relative col-span-2 sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               placeholder={t('rooms.search')}
@@ -408,7 +408,7 @@ export function RoomsTab() {
             />
           </div>
           <Select value={hotelFilter} onValueChange={(v) => setHotelFilter(v as typeof hotelFilter)}>
-            <SelectTrigger className="w-40 bg-card border-border">
+            <SelectTrigger className="w-full sm:w-40 bg-card border-border">
               <SelectValue placeholder={t('filter.hotel')} />
             </SelectTrigger>
             <SelectContent className="bg-card border-border">
@@ -418,7 +418,7 @@ export function RoomsTab() {
             </SelectContent>
           </Select>
           <Select value={useFilter} onValueChange={(v) => setUseFilter(v as typeof useFilter)}>
-            <SelectTrigger className="w-36 bg-card border-border">
+            <SelectTrigger className="w-full sm:w-36 bg-card border-border">
               <SelectValue placeholder={t('filter.use')} />
             </SelectTrigger>
             <SelectContent className="bg-card border-border">
@@ -428,7 +428,7 @@ export function RoomsTab() {
             </SelectContent>
           </Select>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-36 bg-card border-border"><SelectValue placeholder={t('filter.type')} /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-36 bg-card border-border"><SelectValue placeholder={t('filter.type')} /></SelectTrigger>
             <SelectContent className="bg-card border-border">
               <SelectItem value="all">{t('filter.allTypes')}</SelectItem>
               <SelectItem value="single">{t('type.single')}</SelectItem>
@@ -438,7 +438,7 @@ export function RoomsTab() {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-36 bg-card border-border"><SelectValue placeholder={t('filter.status')} /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-36 bg-card border-border"><SelectValue placeholder={t('filter.status')} /></SelectTrigger>
             <SelectContent className="bg-card border-border">
               <SelectItem value="all">{t('filter.allStatuses')}</SelectItem>
               <SelectItem value="available">{t('status.available')}</SelectItem>
@@ -448,7 +448,7 @@ export function RoomsTab() {
             </SelectContent>
           </Select>
           <Select value={occupancyFilter} onValueChange={setOccupancyFilter}>
-            <SelectTrigger className="w-36 bg-card border-border"><SelectValue placeholder={t('filter.fill')} /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-36 bg-card border-border"><SelectValue placeholder={t('filter.fill')} /></SelectTrigger>
             <SelectContent className="bg-card border-border">
               <SelectItem value="all">{t('filter.anyFill')}</SelectItem>
               <SelectItem value="empty">{t('common.empty')}</SelectItem>
@@ -457,8 +457,8 @@ export function RoomsTab() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">{sortedRooms.length} rooms</span>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full lg:w-auto">
+          <span className="text-sm text-muted-foreground mr-auto lg:mr-0">{sortedRooms.length} rooms</span>
           <Button
             variant="outline"
             className="gap-2"
@@ -467,11 +467,13 @@ export function RoomsTab() {
             title="Group unassigned guests by order and drop each group into an empty matching room"
           >
             <Wand2 className="size-4" />
-            {bulkBusy ? 'Assigning...' : 'Auto-assign'}
+            <span className="hidden sm:inline">{bulkBusy ? 'Assigning...' : 'Auto-assign'}</span>
+            <span className="sm:hidden">{bulkBusy ? '...' : 'Auto'}</span>
           </Button>
           <Button variant="outline" className="gap-2" onClick={handleExportCSV}>
             <Download className="size-4" />
-            Export CSV
+            <span className="hidden sm:inline">Export CSV</span>
+            <span className="sm:hidden">CSV</span>
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -574,7 +576,74 @@ export function RoomsTab() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border overflow-hidden">
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-2">
+        {sortedRooms.map((room) => {
+          const occ = occupantsByRoom.get(room.id) ?? []
+          const displayStatus =
+            room.status === 'maintenance' || room.status === 'cleaning'
+              ? room.status
+              : occ.length > 0
+                ? 'occupied'
+                : 'available'
+          return (
+            <div key={room.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-semibold text-foreground font-mono">#{room.room_number}</span>
+                  <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-md border ${hotelColors[room.hotel]}`}>
+                    {room.hotel}
+                  </span>
+                  <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-md border ${typeColors[room.room_type]}`}>
+                    {typeLabels[room.room_type]}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button size="icon" variant="ghost" className="size-8 text-muted-foreground" onClick={() => startEditing(room)}>
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="size-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteRoom(room.id)}>
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 text-xs">
+                <span className={`inline-flex px-2 py-0.5 rounded-md border font-medium capitalize ${statusColors[displayStatus]}`}>
+                  {displayStatus}
+                </span>
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-medium ${room.is_staff ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-secondary text-muted-foreground border-border'}`}>
+                  {room.is_staff ? <Music className="size-3" /> : <Users className="size-3" />}
+                  {room.is_staff ? t('use.staff') : t('use.guest')}
+                </span>
+                <span className={`inline-flex px-2 py-0.5 rounded-md border font-medium ${
+                  occ.length >= room.capacity ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                  : occ.length > 0 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                  : 'bg-secondary text-muted-foreground border-border'
+                }`}>
+                  {occ.length}/{room.capacity}
+                </span>
+              </div>
+              {occ.length > 0 ? (
+                <div className="text-xs text-muted-foreground">
+                  <span className="text-foreground">{occ.map((g) => g.full_name).join(', ')}</span>
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  {t('common.empty')} · {t('rooms.availableFrom')} {format(parseISO(room.available_from), 'MMM d')}
+                </div>
+              )}
+            </div>
+          )
+        })}
+        {sortedRooms.length === 0 && (
+          <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+            No rooms found
+          </div>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block rounded-lg border border-border overflow-hidden overflow-x-auto">
         <table className="w-full">
           <thead className="bg-secondary">
             <tr>

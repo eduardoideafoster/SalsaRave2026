@@ -259,7 +259,7 @@ export function GuestsTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="relative w-80">
+        <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder={t('guests.search')}
@@ -268,7 +268,7 @@ export function GuestsTab() {
             className="pl-10 bg-card border-border"
           />
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between">
           <span className="text-sm text-muted-foreground">{t('guests.count', { n: sortedGuests.length, total: guests.length })}</span>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -366,10 +366,10 @@ export function GuestsTab() {
         </div>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex items-center gap-2 flex-wrap bg-secondary/20 border border-border rounded-md p-2">
+      {/* Filter bar — grid on mobile, inline on desktop */}
+      <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:flex-wrap bg-secondary/20 border border-border rounded-md p-2">
         <Select value={hotelFilter} onValueChange={setHotelFilter}>
-          <SelectTrigger className="w-32 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.hotel')} /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-32 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.hotel')} /></SelectTrigger>
           <SelectContent className="bg-card border-border">
             <SelectItem value="all">{t('filter.allHotels')}</SelectItem>
             <SelectItem value="H3">H3</SelectItem>
@@ -378,28 +378,28 @@ export function GuestsTab() {
           </SelectContent>
         </Select>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-32 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.role')} /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-32 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.role')} /></SelectTrigger>
           <SelectContent className="bg-card border-border">
             <SelectItem value="all">{t('filter.allRoles')}</SelectItem>
             {roles.map((r) => <SelectItem key={r} value={r}>{t(`role.${r}`)}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={countryFilter} onValueChange={setCountryFilter}>
-          <SelectTrigger className="w-40 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.country')} /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-40 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.country')} /></SelectTrigger>
           <SelectContent className="bg-card border-border max-h-72">
             <SelectItem value="all">{t('filter.allCountries')}</SelectItem>
             {countryOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={ticketFilter} onValueChange={setTicketFilter}>
-          <SelectTrigger className="w-44 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.ticket')} /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-44 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.ticket')} /></SelectTrigger>
           <SelectContent className="bg-card border-border max-h-72">
             <SelectItem value="all">{t('filter.allTickets')}</SelectItem>
             {ticketOptions.map((tk) => <SelectItem key={tk} value={tk}>{tk}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={roomTypeFilter} onValueChange={setRoomTypeFilter}>
-          <SelectTrigger className="w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.roomType')} /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.roomType')} /></SelectTrigger>
           <SelectContent className="bg-card border-border">
             <SelectItem value="all">{t('filter.allRoomTypes')}</SelectItem>
             <SelectItem value="single">{t('type.single')}</SelectItem>
@@ -410,7 +410,7 @@ export function GuestsTab() {
           </SelectContent>
         </Select>
         <Select value={assignFilter} onValueChange={setAssignFilter}>
-          <SelectTrigger className="w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.assignment')} /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.assignment')} /></SelectTrigger>
           <SelectContent className="bg-card border-border">
             <SelectItem value="all">{t('common.all')}</SelectItem>
             <SelectItem value="assigned">{t('common.assigned')}</SelectItem>
@@ -418,7 +418,7 @@ export function GuestsTab() {
           </SelectContent>
         </Select>
         <Select value={tribeFilter} onValueChange={setTribeFilter}>
-          <SelectTrigger className="w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.tribe')} /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-36 h-8 text-sm bg-card border-border"><SelectValue placeholder={t('filter.tribe')} /></SelectTrigger>
           <SelectContent className="bg-card border-border">
             <SelectItem value="all">{t('filter.allTribes')}</SelectItem>
             <SelectItem value="none">{t('filter.noTribe')}</SelectItem>
@@ -446,7 +446,95 @@ export function GuestsTab() {
         )}
       </div>
 
-      <div className="rounded-lg border border-border overflow-hidden">
+      {/* Mobile card list (visible under md) */}
+      <div className="md:hidden space-y-2">
+        {sortedGuests.map((guest) => {
+          const roomNum = roomByGuestId.get(guest.id)
+          const roomType = roomTypeByGuestId.get(guest.id)
+          return (
+            <div
+              key={guest.id}
+              className="rounded-lg border border-border bg-card p-3 space-y-2"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <button
+                    onClick={() => setDetailGuest(guest)}
+                    className="font-medium text-foreground hover:text-primary text-left break-words"
+                  >
+                    {guest.full_name}
+                  </button>
+                  <div className="text-xs font-mono text-muted-foreground mt-0.5">
+                    {guest.order_code}
+                    {guest.country ? ` · ${guest.country}` : ''}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-8 text-muted-foreground"
+                    onClick={() => startEditing(guest)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleDeleteGuest(guest.id)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 text-xs">
+                <span className={`inline-flex px-2 py-0.5 rounded-md border font-medium ${roleColors[guest.role]}`}>
+                  {t(`role.${guest.role}`)}
+                </span>
+                {guest.hotel && (
+                  <span className={`inline-flex px-2 py-0.5 rounded-md border font-medium ${hotelColors[guest.hotel]}`}>
+                    {guest.hotel}
+                  </span>
+                )}
+                {guest.hotel && guest.check_in_date && (
+                  <button
+                    onClick={() => setAssignGuest(guest)}
+                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium ${
+                      roomNum
+                        ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                        : 'bg-secondary text-muted-foreground border-border'
+                    }`}
+                  >
+                    <BedDouble className="size-3" />
+                    <span className="font-mono">{roomNum ?? t('guests.assign')}</span>
+                    {roomType && <span className="opacity-70">· {roomTypeLabels[roomType]}</span>}
+                  </button>
+                )}
+                {guest.tribe && (
+                  <span className={`inline-flex px-2 py-0.5 rounded-md border font-medium ${tribeColors[guest.tribe] ?? 'bg-secondary border-border text-muted-foreground'}`}>
+                    {guest.tribe}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">
+                {guest.ticket_type}
+                {guest.check_in_date && guest.check_out_date && (
+                  <> · {format(new Date(guest.check_in_date), 'MMM d')} → {format(new Date(guest.check_out_date), 'MMM d')}</>
+                )}
+              </div>
+            </div>
+          )
+        })}
+        {sortedGuests.length === 0 && (
+          <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+            {t('guests.notFound')}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block rounded-lg border border-border overflow-hidden overflow-x-auto">
         <table className="w-full">
           <thead className="bg-secondary">
             <tr>
