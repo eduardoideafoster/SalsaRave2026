@@ -23,6 +23,7 @@ import {
   CartesianGrid,
 } from 'recharts'
 import { DayDetailDialog } from '@/components/day-detail-dialog'
+import { useT } from '@/lib/i18n'
 
 // Event date range: September 7-15, 2026
 const EVENT_START = new Date(2026, 8, 7) // Sep 7, 2026
