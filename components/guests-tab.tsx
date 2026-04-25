@@ -230,6 +230,9 @@ export function GuestsTab() {
   }
 
   const handleDeleteGuest = async (id: string) => {
+    const guest = guests.find((g) => g.id === id)
+    const label = guest ? `${guest.full_name} (order ${guest.order_code})` : 'this guest'
+    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return
     const { error } = await supabase.from('guests').delete().eq('id', id)
     if (!error) fetchAll()
   }
