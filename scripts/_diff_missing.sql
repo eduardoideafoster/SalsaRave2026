@@ -404,10 +404,17 @@ WITH csv_canonical(order_code, full_name) AS (
   ('NPVSD','Valesca Kipping'),
   ('YX5Z9','Ulrike Silberkuhl')
 )
-SELECT cc.order_code, cc.full_name
+SELECT
+  cc.order_code,
+  cc.full_name AS csv_name,
+  (SELECT string_agg(g2.full_name, ' | ' ORDER BY g2.full_name)
+     FROM guests g2 WHERE g2.order_code = cc.order_code) AS db_names_for_order,
+  CASE WHEN (SELECT count(*) FROM guests g3 WHERE g3.order_code = cc.order_code) = 0
+       THEN 'order_missing_entirely'
+       ELSE 'name_mismatch_only' END AS verdict
 FROM csv_canonical cc
 LEFT JOIN guests g
   ON g.order_code = cc.order_code
   AND lower(g.full_name) = lower(cc.full_name)
 WHERE g.id IS NULL
-ORDER BY cc.order_code, cc.full_name;
+ORDER BY verdict, cc.order_code, cc.full_name;
