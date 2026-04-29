@@ -59,8 +59,11 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
 
   async function assign(room: Room) {
     if (!guest) return
-    if (!guest.check_in_date || !guest.check_out_date) return
     setBusy(room.id)
+
+    // Default event dates when guest has none yet (Core Tribe / unset).
+    const checkIn = guest.check_in_date ?? '2026-09-10'
+    const checkOut = guest.check_out_date ?? '2026-09-14'
 
     // If the guest already has a booking, change that booking's room.
     // Also handle the "single occupancy" case: a SINGLE-ticket guest alone
@@ -77,11 +80,17 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
       await supabase.from('bookings').insert({
         guest_id: guest.id,
         room_id: room.id,
-        check_in_date: guest.check_in_date,
-        check_out_date: guest.check_out_date,
+        check_in_date: checkIn,
+        check_out_date: checkOut,
         status: 'confirmed',
       })
     }
+
+    // Sync hotel + dates on the guest record so UI reflects the assignment.
+    const guestPatch: Partial<Guest> = { hotel: room.hotel as 'H3' | 'H4' }
+    if (!guest.check_in_date) guestPatch.check_in_date = checkIn
+    if (!guest.check_out_date) guestPatch.check_out_date = checkOut
+    await supabase.from('guests').update(guestPatch).eq('id', guest.id)
 
     // Tag new room as single if applicable
     const occupantsInNewRoom = (occupants.get(room.id)?.length ?? 0) +
@@ -126,8 +135,6 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
 
   if (!guest) return null
 
-  const noRoomGuest = !guest.hotel || !guest.check_in_date
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border max-w-2xl">
@@ -147,12 +154,7 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
           )}
         </div>
 
-        {noRoomGuest ? (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-md p-4 text-sm text-amber-300">
-            This guest has no accommodation (RAVEPASS or missing dates) — nothing to assign.
-          </div>
-        ) : (
-          <>
+        <>
             {currentBooking && (
               <div className="flex items-center justify-between bg-blue-500/10 border border-blue-500/30 rounded-md p-3 mb-3">
                 <div className="text-sm">
@@ -226,7 +228,6 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
               )}
             </div>
           </>
-        )}
       </DialogContent>
     </Dialog>
   )

@@ -60,12 +60,18 @@ import { format } from 'date-fns'
 
 const roles = ['Leader', 'Follower', 'Both'] as const
 const ticketTypes = [
+  'CORE TRIBE',
   'RAVEPASS',
+  'RAVEPASS EXTENSION',
   'SINGLE ROOM 3 NIGHTS',
   'SINGLE ROOM 4 NIGHTS',
   'DOUBLE ROOM 3 NIGHTS',
   'DOUBLE ROOM 4 NIGHTS',
+  'TRIPLE ROOM 3 NIGHTS',
   'TRIPLE ROOM 4 NIGHTS',
+  'UPGRADED SINGLE ROOM 3 NIGHTS',
+  'UPGRADED SINGLE ROOM 4 NIGHTS',
+  'UPGRADED DOUBLE ROOM 3 NIGHTS',
   'UPGRADED DOUBLE ROOM 4 NIGHTS',
 ] as const
 
@@ -599,16 +605,28 @@ export function GuestsTab() {
                       />
                     </td>
                     <td className="px-4 py-3">
-                      {editForm.hotel ? (
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${hotelColors[editForm.hotel]}`}>
-                          {editForm.hotel}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                      <Select
+                        value={editForm.hotel ?? 'none'}
+                        onValueChange={(v) => setEditForm({ ...editForm, hotel: v === 'none' ? null : (v as 'H3' | 'H4') })}
+                      >
+                        <SelectTrigger className="h-8 w-20 text-sm bg-secondary border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          <SelectItem value="none">—</SelectItem>
+                          <SelectItem value="H3">H3</SelectItem>
+                          <SelectItem value="H4">H4</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {roomByGuestId.get(guest.id) ?? '—'}
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => setAssignGuest(guest)}
+                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium bg-secondary text-foreground border-border hover:border-primary/50 hover:text-primary transition-colors"
+                      >
+                        <BedDouble className="size-3" />
+                        <span className="font-mono">{roomByGuestId.get(guest.id) ?? t('guests.assign')}</span>
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-xs">
                       {(() => {
@@ -714,21 +732,17 @@ export function GuestsTab() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {guest.hotel && guest.check_in_date ? (
-                        <button
-                          onClick={() => setAssignGuest(guest)}
-                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
-                            roomByGuestId.has(guest.id)
-                              ? 'bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/30'
-                              : 'bg-secondary text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
-                          }`}
-                        >
-                          <BedDouble className="size-3" />
-                          <span className="font-mono">{roomByGuestId.get(guest.id) ?? t('guests.assign')}</span>
-                        </button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      <button
+                        onClick={() => setAssignGuest(guest)}
+                        className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
+                          roomByGuestId.has(guest.id)
+                            ? 'bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/30'
+                            : 'bg-secondary text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                        }`}
+                      >
+                        <BedDouble className="size-3" />
+                        <span className="font-mono">{roomByGuestId.get(guest.id) ?? t('guests.assign')}</span>
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-xs">
                       {(() => {
