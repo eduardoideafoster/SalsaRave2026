@@ -5,7 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Guest, Room, Booking, TRIBES, Tribe } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Search, Pencil, Trash2, X, Check, BedDouble } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, X, Check, BedDouble, EyeOff } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Checkbox } from '@/components/ui/checkbox'
 import { AssignRoomDialog } from '@/components/assign-room-dialog'
 import { GuestDetailDialog } from '@/components/guest-detail-dialog'
 import { SortHeader, compareBy, SortState } from '@/components/sort-header'
@@ -117,6 +119,9 @@ export function GuestsTab() {
     tribe: null as Tribe | null,
   })
   const [tribeFilter, setTribeFilter] = useState<string>('all')
+  const [hiddenTickets, setHiddenTickets] = useState<Set<string>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkPatch, setBulkPatch] = useState<Partial<Guest>>({})
 
   const supabase = createClient()
 
@@ -162,7 +167,9 @@ export function GuestsTab() {
       (hotelFilter === 'none' ? guest.hotel === null : guest.hotel === hotelFilter)
     const matchesRole = roleFilter === 'all' || guest.role === roleFilter
     const matchesCountry = countryFilter === 'all' || guest.country === countryFilter
-    const matchesTicket = ticketFilter === 'all' || guest.ticket_type === ticketFilter
+    const matchesTicket =
+      (ticketFilter === 'all' || guest.ticket_type === ticketFilter) &&
+      !hiddenTickets.has(guest.ticket_type)
     const matchesRoomType = (() => {
       if (roomTypeFilter === 'all') return true
       if (roomTypeFilter === 'unassigned') return !roomByGuestId.has(guest.id)
@@ -246,6 +253,62 @@ export function GuestsTab() {
   const startEditing = (guest: Guest) => {
     setEditingId(guest.id)
     setEditForm(guest)
+  }
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const allVisibleSelected =
+    sortedGuests.length > 0 && sortedGuests.every((g) => selectedIds.has(g.id))
+
+  const toggleSelectAllVisible = () => {
+    if (allVisibleSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (const g of sortedGuests) next.delete(g.id)
+        return next
+      })
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (const g of sortedGuests) next.add(g.id)
+        return next
+      })
+    }
+  }
+
+  const clearSelection = () => {
+    setSelectedIds(new Set())
+    setBulkPatch({})
+  }
+
+  const applyBulkPatch = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    const patch = { ...bulkPatch }
+    if (Object.keys(patch).length === 0) return
+    const { error } = await supabase.from('guests').update(patch).in('id', ids)
+    if (!error) {
+      await fetchAll()
+      clearSelection()
+    }
+  }
+
+  const deleteSelected = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    if (!window.confirm(`Delete ${ids.length} guest(s)? This cannot be undone.`)) return
+    const { error } = await supabase.from('guests').delete().in('id', ids)
+    if (!error) {
+      await fetchAll()
+      clearSelection()
+    }
   }
 
   if (loading) {
@@ -434,7 +497,50 @@ export function GuestsTab() {
             {TRIBES.map((tr) => <SelectItem key={tr} value={tr}>{tr}</SelectItem>)}
           </SelectContent>
         </Select>
-        {anyFilter && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 gap-1 bg-card border-border">
+              <EyeOff className="size-3" />
+              <span className="text-sm">
+                Hide tickets{hiddenTickets.size > 0 ? ` (${hiddenTickets.size})` : ''}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 bg-card border-border" align="start">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Hide ticket types
+            </div>
+            <div className="space-y-1.5 max-h-72 overflow-y-auto">
+              {ticketOptions.map((tk) => (
+                <label key={tk} className="flex items-center gap-2 cursor-pointer text-sm hover:bg-secondary/50 rounded px-1 py-1">
+                  <Checkbox
+                    checked={hiddenTickets.has(tk)}
+                    onCheckedChange={(v) => {
+                      setHiddenTickets((prev) => {
+                        const next = new Set(prev)
+                        if (v) next.add(tk)
+                        else next.delete(tk)
+                        return next
+                      })
+                    }}
+                  />
+                  <span className="truncate">{tk}</span>
+                </label>
+              ))}
+            </div>
+            {hiddenTickets.size > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2 h-7 w-full text-xs text-muted-foreground"
+                onClick={() => setHiddenTickets(new Set())}
+              >
+                Clear hidden
+              </Button>
+            )}
+          </PopoverContent>
+        </Popover>
+        {(anyFilter || hiddenTickets.size > 0) && (
           <Button
             variant="ghost"
             size="sm"
@@ -447,6 +553,7 @@ export function GuestsTab() {
               setRoomTypeFilter('all')
               setAssignFilter('all')
               setTribeFilter('all')
+              setHiddenTickets(new Set())
             }}
           >
             <X className="size-3 mr-1" />
@@ -454,6 +561,123 @@ export function GuestsTab() {
           </Button>
         )}
       </div>
+
+      {/* Bulk edit toolbar — visible when one or more guests are selected */}
+      {selectedIds.size > 0 && (
+        <div className="rounded-md border border-primary/40 bg-primary/5 p-3 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-sm font-medium text-foreground">
+              {selectedIds.size} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="ghost" onClick={clearSelection}>
+                <X className="size-4 mr-1" />Clear
+              </Button>
+              <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300" onClick={deleteSelected}>
+                <Trash2 className="size-4 mr-1" />Delete selected
+              </Button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 items-end">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Hotel</span>
+              <Select
+                value={bulkPatch.hotel ?? '__skip__'}
+                onValueChange={(v) =>
+                  setBulkPatch({
+                    ...bulkPatch,
+                    hotel: v === '__skip__' ? undefined : v === 'none' ? null : (v as 'H3' | 'H4'),
+                  })
+                }
+              >
+                <SelectTrigger className="h-8 w-28 text-sm bg-card border-border"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="__skip__">— skip —</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="H3">H3</SelectItem>
+                  <SelectItem value="H4">H4</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Role</span>
+              <Select
+                value={(bulkPatch.role as string) ?? '__skip__'}
+                onValueChange={(v) =>
+                  setBulkPatch({ ...bulkPatch, role: v === '__skip__' ? undefined : (v as Guest['role']) })
+                }
+              >
+                <SelectTrigger className="h-8 w-28 text-sm bg-card border-border"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="__skip__">— skip —</SelectItem>
+                  {roles.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Tribe</span>
+              <Select
+                value={
+                  bulkPatch.tribe === undefined ? '__skip__' : bulkPatch.tribe === null ? 'none' : bulkPatch.tribe
+                }
+                onValueChange={(v) =>
+                  setBulkPatch({
+                    ...bulkPatch,
+                    tribe: v === '__skip__' ? undefined : v === 'none' ? null : (v as Tribe),
+                  })
+                }
+              >
+                <SelectTrigger className="h-8 w-32 text-sm bg-card border-border"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="__skip__">— skip —</SelectItem>
+                  <SelectItem value="none">No tribe</SelectItem>
+                  {TRIBES.map((tr) => <SelectItem key={tr} value={tr}>{tr}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Ticket</span>
+              <Select
+                value={(bulkPatch.ticket_type as string) ?? '__skip__'}
+                onValueChange={(v) =>
+                  setBulkPatch({ ...bulkPatch, ticket_type: v === '__skip__' ? undefined : v })
+                }
+              >
+                <SelectTrigger className="h-8 w-44 text-sm bg-card border-border"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-card border-border max-h-72">
+                  <SelectItem value="__skip__">— skip —</SelectItem>
+                  {ticketTypes.map((tk) => <SelectItem key={tk} value={tk}>{tk}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Check-in</span>
+              <Input
+                type="date"
+                value={bulkPatch.check_in_date ?? ''}
+                onChange={(e) =>
+                  setBulkPatch({ ...bulkPatch, check_in_date: e.target.value || undefined })
+                }
+                className="h-8 w-36 text-sm bg-card border-border"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Check-out</span>
+              <Input
+                type="date"
+                value={bulkPatch.check_out_date ?? ''}
+                onChange={(e) =>
+                  setBulkPatch({ ...bulkPatch, check_out_date: e.target.value || undefined })
+                }
+                className="h-8 w-36 text-sm bg-card border-border"
+              />
+            </div>
+            <Button size="sm" onClick={applyBulkPatch} disabled={Object.keys(bulkPatch).length === 0}>
+              <Check className="size-4 mr-1" />Apply to {selectedIds.size}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Mobile card list (visible under md) */}
       <div className="md:hidden space-y-2">
@@ -547,6 +771,13 @@ export function GuestsTab() {
         <table className="w-full">
           <thead className="bg-secondary">
             <tr>
+              <th className="px-3 py-3 w-9">
+                <Checkbox
+                  checked={allVisibleSelected}
+                  onCheckedChange={toggleSelectAllVisible}
+                  aria-label="Select all"
+                />
+              </th>
               <SortHeader label={t('guests.order')} sortKey="order_code" state={sort} onSort={setSort} />
               <SortHeader label={t('guests.name')} sortKey="full_name" state={sort} onSort={setSort} />
               <SortHeader label={t('guests.role')} sortKey="role" state={sort} onSort={setSort} />
@@ -563,7 +794,14 @@ export function GuestsTab() {
           </thead>
           <tbody className="divide-y divide-border">
             {sortedGuests.map((guest) => (
-              <tr key={guest.id} className="bg-card hover:bg-secondary/50 transition-colors">
+              <tr key={guest.id} className={`hover:bg-secondary/50 transition-colors ${selectedIds.has(guest.id) ? 'bg-primary/10' : 'bg-card'}`}>
+                <td className="px-3 py-3 w-9">
+                  <Checkbox
+                    checked={selectedIds.has(guest.id)}
+                    onCheckedChange={() => toggleSelected(guest.id)}
+                    aria-label="Select row"
+                  />
+                </td>
                 {editingId === guest.id ? (
                   <>
                     <td className="px-4 py-3">
