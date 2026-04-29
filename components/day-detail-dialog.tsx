@@ -29,11 +29,11 @@ export function DayDetailDialog({ date, rooms, guests, bookings, open, onOpenCha
     const checkIns = activeBookings.filter((b) => isSameDay(parseISO(b.check_in_date), date))
     // Check-outs: bookings whose check_out_date is this day
     const checkOuts = activeBookings.filter((b) => isSameDay(parseISO(b.check_out_date), date))
-    // Currently staying: check_in <= date < check_out
+    // Currently staying: check_in <= date <= check_out (checkout day still occupies the room)
     const staying = activeBookings.filter((b) => {
       const ci = parseISO(b.check_in_date)
       const co = parseISO(b.check_out_date)
-      return !isBefore(date, ci) && isBefore(date, co)
+      return !isBefore(date, ci) && !isAfter(date, co)
     })
     // Staff rooms "occupied" on this day (available_from <= date)
     const staffOccupiedRooms = rooms.filter(

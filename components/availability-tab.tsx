@@ -98,7 +98,7 @@ export function AvailabilityTab() {
             if (b.status === 'cancelled') return false
             const ci = parseISO(b.check_in_date)
             const co = parseISO(b.check_out_date)
-            return !isBefore(date, ci) && isBefore(date, co)
+            return !isBefore(date, ci) && !isAfter(date, co)
           })
           .map((b) => b.room_id),
       )
@@ -136,7 +136,7 @@ export function AvailabilityTab() {
         if (b.status === 'cancelled') return false
         const ci = parseISO(b.check_in_date)
         const co = parseISO(b.check_out_date)
-        return !isBefore(date, ci) && isBefore(date, co)
+        return !isBefore(date, ci) && !isAfter(date, co)
       })
       const bookedRoomIds = new Set<string>()
       const fourNightRoomIds = new Set<string>()
@@ -187,7 +187,7 @@ export function AvailabilityTab() {
       if (b.room_id !== room.id || b.status === 'cancelled') return false
       const checkIn = parseISO(b.check_in_date)
       const checkOut = parseISO(b.check_out_date)
-      return !isBefore(date, checkIn) && isBefore(date, checkOut)
+      return !isBefore(date, checkIn) && !isAfter(date, checkOut)
     })
   }
 
