@@ -236,6 +236,13 @@ export function GuestsTab() {
   const handleUpdateGuest = async (id: string) => {
     const { error } = await supabase.from('guests').update(editForm).eq('id', id)
     if (!error) {
+      // Keep the booking in sync — the stats/availability charts read dates from there.
+      const bookingPatch: { check_in_date?: string; check_out_date?: string } = {}
+      if (editForm.check_in_date !== undefined && editForm.check_in_date !== null) bookingPatch.check_in_date = editForm.check_in_date
+      if (editForm.check_out_date !== undefined && editForm.check_out_date !== null) bookingPatch.check_out_date = editForm.check_out_date
+      if (Object.keys(bookingPatch).length > 0) {
+        await supabase.from('bookings').update(bookingPatch).eq('guest_id', id).neq('status', 'cancelled')
+      }
       fetchAll()
       setEditingId(null)
       setEditForm({})
@@ -295,6 +302,12 @@ export function GuestsTab() {
     if (Object.keys(patch).length === 0) return
     const { error } = await supabase.from('guests').update(patch).in('id', ids)
     if (!error) {
+      const bookingPatch: { check_in_date?: string; check_out_date?: string } = {}
+      if (patch.check_in_date) bookingPatch.check_in_date = patch.check_in_date
+      if (patch.check_out_date) bookingPatch.check_out_date = patch.check_out_date
+      if (Object.keys(bookingPatch).length > 0) {
+        await supabase.from('bookings').update(bookingPatch).in('guest_id', ids).neq('status', 'cancelled')
+      }
       await fetchAll()
       clearSelection()
     }
