@@ -78,10 +78,16 @@ export function AvailabilityTab() {
   // Numerator   = rooms not currently occupied (either by staff or guests).
   const guestRooms = useMemo(() => rooms.filter((r) => !r.is_staff), [rooms])
 
+  // A room counts as part of "real inventory" on a given date when:
+  //   - its available_from has kicked in (we control the room from that night)
+  //   - its status is not 'maintenance' (the hotel may keep some rooms aside)
+  const isInInventory = (r: Room, date: Date) =>
+    r.status !== 'maintenance' && !isAfter(parseISO(r.available_from), date)
+
   const availabilityByDate = useMemo((): AvailabilityByDate[] => {
     return days.map((date) => {
-      const h3Total = rooms.filter((r) => r.hotel === 'H3').length
-      const h4Total = rooms.filter((r) => r.hotel === 'H4').length
+      const h3Total = rooms.filter((r) => r.hotel === 'H3' && isInInventory(r, date)).length
+      const h4Total = rooms.filter((r) => r.hotel === 'H4' && isInInventory(r, date)).length
 
       // Staff rooms "occupied" on this day (their available_from has kicked in)
       const staffOccupiedH3 = rooms.filter(
@@ -153,8 +159,8 @@ export function AvailabilityTab() {
       const booked = bookedRoomIds.size
       const otherBooked = Math.max(0, booked - nights4 - nights3)
 
-      const total = filteredRooms.length
-      const free = total - staff - booked
+      const total = filteredRooms.filter((r) => isInInventory(r, date)).length
+      const free = Math.max(0, total - staff - booked)
 
       return {
         date,
