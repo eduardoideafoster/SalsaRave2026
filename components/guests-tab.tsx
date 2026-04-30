@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Guest, Room, Booking, TRIBES, Tribe } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Search, Pencil, Trash2, X, Check, BedDouble, EyeOff } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, X, Check, BedDouble, EyeOff, Download, Upload } from 'lucide-react'
+import { generateCSV, downloadCSV, csvToObjects } from '@/lib/csv'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Checkbox } from '@/components/ui/checkbox'
 import { AssignRoomDialog } from '@/components/assign-room-dialog'
@@ -324,6 +325,83 @@ export function GuestsTab() {
     }
   }
 
+  const handleExportGuestsCSV = () => {
+    const headers = ['order_code', 'full_name', 'role', 'country', 'ticket_type', 'hotel', 'tribe', 'check_in_date', 'check_out_date']
+    const rows = sortedGuests.map((g) => [
+      g.order_code,
+      g.full_name,
+      g.role,
+      g.country ?? '',
+      g.ticket_type,
+      g.hotel ?? '',
+      g.tribe ?? '',
+      g.check_in_date ?? '',
+      g.check_out_date ?? '',
+    ])
+    const csv = generateCSV(headers, rows)
+    downloadCSV(csv, `salsarave-2026-guests-${new Date().toISOString().slice(0, 10)}.csv`)
+  }
+
+  const [importBusy, setImportBusy] = useState(false)
+  const [importResult, setImportResult] = useState<{ added: number; updated: number; errors: string[] } | null>(null)
+
+  const handleImportGuestsCSV = async (file: File) => {
+    setImportBusy(true)
+    setImportResult(null)
+    try {
+      const text = await file.text()
+      const records = csvToObjects(text)
+      if (records.length === 0) {
+        setImportResult({ added: 0, updated: 0, errors: ['CSV is empty or has no data rows'] })
+        return
+      }
+      const first = records[0]
+      if (!first['order_code'] || !first['full_name']) {
+        setImportResult({ added: 0, updated: 0, errors: ['CSV must have order_code and full_name columns'] })
+        return
+      }
+
+      let added = 0
+      let updated = 0
+      const errors: string[] = []
+
+      for (const rec of records) {
+        const guestData: Record<string, unknown> = {
+          order_code: rec['order_code'],
+          full_name: rec['full_name'],
+          role: (['Leader', 'Follower', 'Both'].includes(rec['role']) ? rec['role'] : 'Follower'),
+          country: rec['country'] || null,
+          ticket_type: rec['ticket_type'] || 'RAVEPASS',
+          hotel: (['H3', 'H4'].includes(rec['hotel']) ? rec['hotel'] : null),
+          tribe: (TRIBES as readonly string[]).includes(rec['tribe']) ? rec['tribe'] : null,
+        }
+        if (rec['check_in_date']) guestData.check_in_date = rec['check_in_date']
+        if (rec['check_out_date']) guestData.check_out_date = rec['check_out_date']
+
+        const existing = guests.find(
+          (g) => g.order_code === rec['order_code'] && g.full_name === rec['full_name'],
+        )
+
+        if (existing) {
+          const { error } = await supabase.from('guests').update(guestData).eq('id', existing.id)
+          if (error) errors.push(`Update failed for ${rec['full_name']}: ${error.message}`)
+          else updated++
+        } else {
+          const { error } = await supabase.from('guests').insert([guestData])
+          if (error) errors.push(`Insert failed for ${rec['full_name']}: ${error.message}`)
+          else added++
+        }
+      }
+
+      setImportResult({ added, updated, errors })
+      await fetchAll()
+    } catch (err) {
+      setImportResult({ added: 0, updated: 0, errors: [`Parse error: ${(err as Error).message}`] })
+    } finally {
+      setImportBusy(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -353,8 +431,32 @@ export function GuestsTab() {
             className="pl-10 bg-card border-border"
           />
         </div>
-        <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between">
-          <span className="text-sm text-muted-foreground">{t('guests.count', { n: sortedGuests.length, total: guests.length })}</span>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto justify-between">
+          <span className="text-sm text-muted-foreground mr-auto sm:mr-0">{t('guests.count', { n: sortedGuests.length, total: guests.length })}</span>
+          <Button variant="outline" className="gap-2" onClick={handleExportGuestsCSV}>
+            <Download className="size-4" />
+            <span className="hidden sm:inline">Export CSV</span>
+            <span className="sm:hidden">CSV↓</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            disabled={importBusy}
+            onClick={() => {
+              const input = document.createElement('input')
+              input.type = 'file'
+              input.accept = '.csv,text/csv'
+              input.onchange = (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0]
+                if (file) handleImportGuestsCSV(file)
+              }
+              input.click()
+            }}
+          >
+            <Upload className="size-4" />
+            <span className="hidden sm:inline">{importBusy ? 'Importing...' : 'Import CSV'}</span>
+            <span className="sm:hidden">{importBusy ? '...' : 'CSV↑'}</span>
+          </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -574,6 +676,24 @@ export function GuestsTab() {
           </Button>
         )}
       </div>
+
+      {importResult && (
+        <div className={`rounded-md border p-3 text-sm flex items-start justify-between ${importResult.errors.length > 0 ? 'border-red-500/40 bg-red-500/10 text-red-300' : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'}`}>
+          <div>
+            <span className="font-medium">Import: </span>
+            {importResult.added} added, {importResult.updated} updated
+            {importResult.errors.length > 0 && (
+              <ul className="mt-1 list-disc list-inside text-xs">
+                {importResult.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
+                {importResult.errors.length > 5 && <li>…and {importResult.errors.length - 5} more</li>}
+              </ul>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setImportResult(null)}>
+            <X className="size-4" />
+          </Button>
+        </div>
+      )}
 
       {/* Bulk edit toolbar — visible when one or more guests are selected */}
       {selectedIds.size > 0 && (

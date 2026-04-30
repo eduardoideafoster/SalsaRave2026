@@ -5,8 +5,10 @@ import { createClient } from '@/lib/supabase/client'
 import { Room, Guest, Booking } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Search, Pencil, Trash2, X, Check, Users, Music, Wand2, Download } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, X, Check, Users, Music, Wand2, Download, Upload } from 'lucide-react'
+import { generateCSV, downloadCSV, csvToObjects } from '@/lib/csv'
 import { Switch } from '@/components/ui/switch'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SortHeader, compareBy, SortState } from '@/components/sort-header'
 import { useT } from '@/lib/i18n'
 
@@ -294,9 +296,9 @@ export function RoomsTab() {
   }
 
   // CSV export — full rooming list (one row per booked guest)
-  const handleExportCSV = () => {
-    const header = ['room_number', 'hotel', 'room_type', 'capacity', 'guest_name', 'order_code', 'role', 'country', 'ticket_type', 'check_in', 'check_out']
-    const rows: string[][] = [header]
+  const handleExportRoomingCSV = () => {
+    const headers = ['room_number', 'hotel', 'room_type', 'capacity', 'guest_name', 'order_code', 'role', 'country', 'ticket_type', 'check_in', 'check_out']
+    const rows: string[][] = []
     const sortedByRoom = [...rooms].sort((a, b) => Number(a.room_number) - Number(b.room_number))
     for (const room of sortedByRoom) {
       const occ = occupantsByRoom.get(room.id) ?? []
@@ -305,41 +307,89 @@ export function RoomsTab() {
         continue
       }
       for (const g of occ) {
-        rows.push([
-          room.room_number,
-          room.hotel,
-          room.room_type,
-          String(room.capacity),
-          g.full_name,
-          g.order_code,
-          g.role,
-          g.country ?? '',
-          g.ticket_type,
-          g.check_in_date ?? '',
-          g.check_out_date ?? '',
-        ])
+        rows.push([room.room_number, room.hotel, room.room_type, String(room.capacity), g.full_name, g.order_code, g.role, g.country ?? '', g.ticket_type, g.check_in_date ?? '', g.check_out_date ?? ''])
       }
     }
-    // Escape fields that contain quotes, commas, or newlines
-    const csv = rows
-      .map((r) =>
-        r
-          .map((v) => {
-            if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`
-            return v
-          })
-          .join(','),
-      )
-      .join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `salsarave-2026-rooming-list-${new Date().toISOString().slice(0, 10)}.csv`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+    downloadCSV(generateCSV(headers, rows), `salsarave-2026-rooming-list-${new Date().toISOString().slice(0, 10)}.csv`)
+  }
+
+  // CSV export — rooms inventory only
+  const handleExportRoomsCSV = () => {
+    const headers = ['room_number', 'hotel', 'room_type', 'capacity', 'available_from', 'status', 'is_staff', 'notes']
+    const rows = sortedRooms.map((r) => [
+      r.room_number,
+      r.hotel,
+      r.room_type,
+      String(r.capacity),
+      r.available_from,
+      r.status,
+      r.is_staff ? 'true' : 'false',
+      r.notes ?? '',
+    ])
+    downloadCSV(generateCSV(headers, rows), `salsarave-2026-rooms-${new Date().toISOString().slice(0, 10)}.csv`)
+  }
+
+  const [importBusy, setImportBusy] = useState(false)
+  const [importResult, setImportResult] = useState<{ added: number; updated: number; errors: string[] } | null>(null)
+
+  const handleImportRoomsCSV = async (file: File) => {
+    setImportBusy(true)
+    setImportResult(null)
+    try {
+      const text = await file.text()
+      const records = csvToObjects(text)
+      if (records.length === 0) {
+        setImportResult({ added: 0, updated: 0, errors: ['CSV is empty or has no data rows'] })
+        return
+      }
+      const first = records[0]
+      if (!first['room_number'] || !first['hotel']) {
+        setImportResult({ added: 0, updated: 0, errors: ['CSV must have room_number and hotel columns'] })
+        return
+      }
+
+      const validTypes = ['single', 'double', 'triple', 'quadruple']
+      const validStatuses = ['available', 'occupied', 'maintenance', 'cleaning', 'blocked']
+      let added = 0
+      let updated = 0
+      const errors: string[] = []
+
+      for (const rec of records) {
+        const roomType = validTypes.includes(rec['room_type']) ? rec['room_type'] : 'double'
+        const capacityMap: Record<string, number> = { single: 1, double: 2, triple: 3, quadruple: 4 }
+        const roomData: Record<string, unknown> = {
+          room_number: rec['room_number'],
+          hotel: (['H3', 'H4'].includes(rec['hotel']) ? rec['hotel'] : 'H3'),
+          room_type: roomType,
+          capacity: rec['capacity'] ? parseInt(rec['capacity'], 10) : capacityMap[roomType],
+          available_from: rec['available_from'] || '2026-09-10',
+          status: validStatuses.includes(rec['status']) ? rec['status'] : 'available',
+          is_staff: rec['is_staff'] === 'true',
+        }
+        if (rec['notes']) roomData.notes = rec['notes']
+
+        const existing = rooms.find(
+          (r) => r.room_number === rec['room_number'] && r.hotel === rec['hotel'],
+        )
+
+        if (existing) {
+          const { error } = await supabase.from('rooms').update(roomData).eq('id', existing.id)
+          if (error) errors.push(`Update failed for room ${rec['room_number']}: ${error.message}`)
+          else updated++
+        } else {
+          const { error } = await supabase.from('rooms').insert([roomData])
+          if (error) errors.push(`Insert failed for room ${rec['room_number']}: ${error.message}`)
+          else added++
+        }
+      }
+
+      setImportResult({ added, updated, errors })
+      await fetchRooms()
+    } catch (err) {
+      setImportResult({ added: 0, updated: 0, errors: [`Parse error: ${(err as Error).message}`] })
+    } finally {
+      setImportBusy(false)
+    }
   }
 
   const handleToggleStaff = async (room: Room, next: boolean) => {
@@ -470,10 +520,41 @@ export function RoomsTab() {
             <span className="hidden sm:inline">{bulkBusy ? 'Assigning...' : 'Auto-assign'}</span>
             <span className="sm:hidden">{bulkBusy ? '...' : 'Auto'}</span>
           </Button>
-          <Button variant="outline" className="gap-2" onClick={handleExportCSV}>
-            <Download className="size-4" />
-            <span className="hidden sm:inline">Export CSV</span>
-            <span className="sm:hidden">CSV</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Download className="size-4" />
+                <span className="hidden sm:inline">Export CSV</span>
+                <span className="sm:hidden">CSV↓</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 bg-card border-border p-2" align="end">
+              <Button variant="ghost" className="w-full justify-start text-sm" onClick={handleExportRoomsCSV}>
+                Rooms inventory
+              </Button>
+              <Button variant="ghost" className="w-full justify-start text-sm" onClick={handleExportRoomingCSV}>
+                Rooming list (with guests)
+              </Button>
+            </PopoverContent>
+          </Popover>
+          <Button
+            variant="outline"
+            className="gap-2"
+            disabled={importBusy}
+            onClick={() => {
+              const input = document.createElement('input')
+              input.type = 'file'
+              input.accept = '.csv,text/csv'
+              input.onchange = (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0]
+                if (file) handleImportRoomsCSV(file)
+              }
+              input.click()
+            }}
+          >
+            <Upload className="size-4" />
+            <span className="hidden sm:inline">{importBusy ? 'Importing...' : 'Import CSV'}</span>
+            <span className="sm:hidden">{importBusy ? '...' : 'CSV↑'}</span>
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -575,6 +656,24 @@ export function RoomsTab() {
           </Dialog>
         </div>
       </div>
+
+      {importResult && (
+        <div className={`rounded-md border p-3 text-sm flex items-start justify-between ${importResult.errors.length > 0 ? 'border-red-500/40 bg-red-500/10 text-red-300' : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'}`}>
+          <div>
+            <span className="font-medium">Import: </span>
+            {importResult.added} added, {importResult.updated} updated
+            {importResult.errors.length > 0 && (
+              <ul className="mt-1 list-disc list-inside text-xs">
+                {importResult.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
+                {importResult.errors.length > 5 && <li>…and {importResult.errors.length - 5} more</li>}
+              </ul>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setImportResult(null)}>
+            <X className="size-4" />
+          </Button>
+        </div>
+      )}
 
       {/* Mobile card list */}
       <div className="md:hidden space-y-2">
