@@ -134,7 +134,7 @@ export function RoomsTab() {
     const matchesType = typeFilter === 'all' || room.room_type === typeFilter
     const occ = occupantsByRoom.get(room.id)?.length ?? 0
     const derivedStatus =
-      room.status === 'maintenance' || room.status === 'cleaning'
+      room.status === 'maintenance' || room.status === 'cleaning' || room.status === 'blocked'
         ? room.status
         : occ > 0
           ? 'occupied'
@@ -160,7 +160,7 @@ export function RoomsTab() {
         case 'status':
           // Derived display status (occupied if any occupants, unless manually set)
           const occ = occupantsByRoom.get(r.id)?.length ?? 0
-          return r.status === 'maintenance' || r.status === 'cleaning'
+          return r.status === 'maintenance' || r.status === 'cleaning' || r.status === 'blocked'
             ? r.status
             : occ > 0 ? 'occupied' : 'available'
         default:
@@ -581,7 +581,7 @@ export function RoomsTab() {
         {sortedRooms.map((room) => {
           const occ = occupantsByRoom.get(room.id) ?? []
           const displayStatus =
-            room.status === 'maintenance' || room.status === 'cleaning'
+            room.status === 'maintenance' || room.status === 'cleaning' || room.status === 'blocked'
               ? room.status
               : occ.length > 0
                 ? 'occupied'
@@ -811,7 +811,7 @@ export function RoomsTab() {
                       {(() => {
                         const occ = occupantsByRoom.get(room.id)?.length ?? 0
                         const displayStatus =
-                          room.status === 'maintenance' || room.status === 'cleaning'
+                          room.status === 'maintenance' || room.status === 'cleaning' || room.status === 'blocked'
                             ? room.status
                             : occ > 0
                               ? 'occupied'

@@ -137,7 +137,7 @@ export function StatisticsTab() {
       bookings.filter((b) => b.status !== 'cancelled').map((b) => b.room_id),
     )
     // Effective inventory excludes maintenance rooms (e.g. hotel-reserved blocks).
-    const guestRooms = rooms.filter((r) => !r.is_staff && r.status !== 'maintenance')
+    const guestRooms = rooms.filter((r) => !r.is_staff && r.status !== 'maintenance' && r.status !== 'blocked')
     const staffRooms = rooms.filter((r) => r.is_staff)
     const guestRoomsBooked = guestRooms.filter((r) => bookedRoomIds.has(r.id)).length
     const guestRoomsRemaining = guestRooms.length - guestRoomsBooked
@@ -150,7 +150,7 @@ export function StatisticsTab() {
     // 4-night capacity = rooms whose available_from <= Sep 10 (Thu, when 4N guests check in)
     // 3-night capacity = rooms whose available_from <= Sep 11 (Fri) — full event inventory
     const isAvailableBy = (r: typeof rooms[number], iso: string) =>
-      r.status !== 'maintenance' && r.available_from <= iso
+      r.status !== 'maintenance' && r.status !== 'blocked' && r.available_from <= iso
     const inventoryThu = guestRooms.filter((r) => isAvailableBy(r, '2026-09-10')).length
     const inventoryFri = guestRooms.filter((r) => isAvailableBy(r, '2026-09-11')).length
     // Distinct rooms in use on each night

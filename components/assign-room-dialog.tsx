@@ -51,7 +51,7 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
     if (!guest) return []
     const term = search.toLowerCase()
     return rooms
-      .filter((r) => !r.is_staff && r.status !== 'maintenance')
+      .filter((r) => !r.is_staff && r.status !== 'maintenance' && r.status !== 'blocked')
       .filter((r) => (guest.hotel ? r.hotel === guest.hotel : true))
       .filter((r) => r.room_number.toLowerCase().includes(term))
       .sort((a, b) => Number(a.room_number) - Number(b.room_number))

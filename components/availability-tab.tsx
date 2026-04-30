@@ -82,7 +82,7 @@ export function AvailabilityTab() {
   //   - its available_from has kicked in (we control the room from that night)
   //   - its status is not 'maintenance' (the hotel may keep some rooms aside)
   const isInInventory = (r: Room, date: Date) =>
-    r.status !== 'maintenance' && !isAfter(parseISO(r.available_from), date)
+    r.status !== 'maintenance' && r.status !== 'blocked' && !isAfter(parseISO(r.available_from), date)
 
   const availabilityByDate = useMemo((): AvailabilityByDate[] => {
     return days.map((date) => {
