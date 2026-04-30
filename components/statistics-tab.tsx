@@ -146,6 +146,27 @@ export function StatisticsTab() {
     const h3Booked = h3Guest.filter((r) => bookedRoomIds.has(r.id)).length
     const h4Booked = h4Guest.filter((r) => bookedRoomIds.has(r.id)).length
 
+    // Capacity ramps based on `available_from` per room.
+    // 4-night capacity = rooms whose available_from <= Sep 10 (Thu, when 4N guests check in)
+    // 3-night capacity = rooms whose available_from <= Sep 11 (Fri) — full event inventory
+    const isAvailableBy = (r: typeof rooms[number], iso: string) =>
+      r.status !== 'maintenance' && r.available_from <= iso
+    const inventoryThu = guestRooms.filter((r) => isAvailableBy(r, '2026-09-10')).length
+    const inventoryFri = guestRooms.filter((r) => isAvailableBy(r, '2026-09-11')).length
+    // Distinct rooms in use on each night
+    const roomsOnSep10 = new Set(
+      bookings
+        .filter((b) => b.status !== 'cancelled' && b.check_in_date <= '2026-09-10' && b.check_out_date >= '2026-09-11')
+        .map((b) => b.room_id),
+    ).size
+    const roomsOnSep11 = new Set(
+      bookings
+        .filter((b) => b.status !== 'cancelled' && b.check_in_date <= '2026-09-11' && b.check_out_date >= '2026-09-12')
+        .map((b) => b.room_id),
+    ).size
+    const fourNightFree = inventoryThu - roomsOnSep10
+    const threeNightFree = inventoryFri - roomsOnSep11
+
     return {
       total,
       leaders,
@@ -174,6 +195,12 @@ export function StatisticsTab() {
       h4GuestTotal: h4Guest.length,
       h4Booked,
       h4Remaining: h4Guest.length - h4Booked,
+      inventoryThu,
+      inventoryFri,
+      roomsOnSep10,
+      roomsOnSep11,
+      fourNightFree,
+      threeNightFree,
     }
   }, [guests, rooms, bookings])
 
@@ -185,8 +212,62 @@ export function StatisticsTab() {
     )
   }
 
+  // Helpers for the per-night sales-capacity cards
+  const fmtDelta = (n: number) =>
+    n > 0 ? `${n} free` : n < 0 ? `+${-n} over` : 'exact'
+  const deltaColor = (n: number) =>
+    n > 0 ? 'text-emerald-400' : n < 0 ? 'text-red-400' : 'text-muted-foreground'
+  const cardTone = (n: number) =>
+    n < 0
+      ? 'from-red-500/20 to-red-500/5 border-red-500/40'
+      : n === 0
+      ? 'from-amber-500/20 to-amber-500/5 border-amber-500/40'
+      : 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/40'
+  const numberTone = (n: number) =>
+    n < 0 ? 'text-red-400' : n === 0 ? 'text-amber-400' : 'text-emerald-400'
+
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Sellable rooms per check-in window — what can still go on sale */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        <div className={`bg-gradient-to-br ${cardTone(stats.fourNightFree)} rounded-xl border p-4 sm:p-6`}>
+          <div className="flex items-center gap-2 mb-2">
+            <BedDouble className="size-5 text-foreground/80" />
+            <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-foreground/90">
+              4-Night sellable (check-in Thu)
+            </span>
+          </div>
+          <div className={`text-5xl sm:text-7xl font-black leading-none ${numberTone(stats.fourNightFree)}`}>
+            {stats.fourNightFree}
+          </div>
+          <div className="mt-3 text-xs sm:text-sm text-muted-foreground">
+            <span className={`font-semibold ${deltaColor(stats.fourNightFree)}`}>
+              {fmtDelta(stats.fourNightFree)}
+            </span>
+            {' · '}
+            {stats.roomsOnSep10}/{stats.inventoryThu} rooms in use Thu night
+          </div>
+        </div>
+        <div className={`bg-gradient-to-br ${cardTone(stats.threeNightFree)} rounded-xl border p-4 sm:p-6`}>
+          <div className="flex items-center gap-2 mb-2">
+            <BedDouble className="size-5 text-foreground/80" />
+            <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-foreground/90">
+              3-Night sellable (check-in Fri)
+            </span>
+          </div>
+          <div className={`text-5xl sm:text-7xl font-black leading-none ${numberTone(stats.threeNightFree)}`}>
+            {stats.threeNightFree}
+          </div>
+          <div className="mt-3 text-xs sm:text-sm text-muted-foreground">
+            <span className={`font-semibold ${deltaColor(stats.threeNightFree)}`}>
+              {fmtDelta(stats.threeNightFree)}
+            </span>
+            {' · '}
+            {stats.roomsOnSep11}/{stats.inventoryFri} rooms in use Fri night
+          </div>
+        </div>
+      </div>
+
       {/* Rooms Remaining — global + per-hotel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
         <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-xl border border-emerald-500/40 p-4 sm:p-6">
