@@ -136,7 +136,8 @@ export function StatisticsTab() {
     const bookedRoomIds = new Set(
       bookings.filter((b) => b.status !== 'cancelled').map((b) => b.room_id),
     )
-    const guestRooms = rooms.filter((r) => !r.is_staff)
+    // Effective inventory excludes maintenance rooms (e.g. hotel-reserved blocks).
+    const guestRooms = rooms.filter((r) => !r.is_staff && r.status !== 'maintenance')
     const staffRooms = rooms.filter((r) => r.is_staff)
     const guestRoomsBooked = guestRooms.filter((r) => bookedRoomIds.has(r.id)).length
     const guestRoomsRemaining = guestRooms.length - guestRoomsBooked
