@@ -154,14 +154,15 @@ export function StatisticsTab() {
     const inventoryThu = guestRooms.filter((r) => isAvailableBy(r, '2026-09-10')).length
     const inventoryFri = guestRooms.filter((r) => isAvailableBy(r, '2026-09-11')).length
     // Distinct rooms in use on each night
+    // Checkout date is inclusive (the room is still considered occupied on the day a guest leaves).
     const roomsOnSep10 = new Set(
       bookings
-        .filter((b) => b.status !== 'cancelled' && b.check_in_date <= '2026-09-10' && b.check_out_date >= '2026-09-11')
+        .filter((b) => b.status !== 'cancelled' && b.check_in_date <= '2026-09-10' && b.check_out_date >= '2026-09-10')
         .map((b) => b.room_id),
     ).size
     const roomsOnSep11 = new Set(
       bookings
-        .filter((b) => b.status !== 'cancelled' && b.check_in_date <= '2026-09-11' && b.check_out_date >= '2026-09-12')
+        .filter((b) => b.status !== 'cancelled' && b.check_in_date <= '2026-09-11' && b.check_out_date >= '2026-09-11')
         .map((b) => b.room_id),
     ).size
     const fourNightFree = inventoryThu - roomsOnSep10
