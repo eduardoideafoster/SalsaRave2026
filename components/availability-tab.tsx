@@ -131,13 +131,8 @@ export function AvailabilityTab() {
   const stackedData = useMemo(() => {
     const filterHotel = (r: Room) => hotelFilter === 'all' || r.hotel === hotelFilter
     const filteredRooms = rooms.filter(filterHotel)
-    const filteredGuestRooms = guestRooms.filter(filterHotel)
 
     return days.map((date) => {
-      const staff = filteredRooms.filter(
-        (r) => r.is_staff && !isAfter(parseISO(r.available_from), date),
-      ).length
-
       const activeOnDate = bookings.filter((b) => {
         if (b.status === 'cancelled') return false
         const ci = parseISO(b.check_in_date)
@@ -145,34 +140,55 @@ export function AvailabilityTab() {
         return !isBefore(date, ci) && !isAfter(date, co)
       })
       const bookedRoomIds = new Set<string>()
+      const coreTribeRoomIds = new Set<string>()
       const fourNightRoomIds = new Set<string>()
       const threeNightRoomIds = new Set<string>()
       for (const b of activeOnDate) {
-        const room = filteredGuestRooms.find((r) => r.id === b.room_id)
+        const room = filteredRooms.find((r) => r.id === b.room_id)
         if (!room) continue
         bookedRoomIds.add(room.id)
-        if (b.check_in_date === '2026-09-10') fourNightRoomIds.add(room.id)
-        else if (b.check_in_date === '2026-09-11') threeNightRoomIds.add(room.id)
+        const guest = guests.find((g) => g.id === b.guest_id)
+        const isCoreTribe =
+          (guest && (guest.order_code === 'CORE-TRIBE' || guest.ticket_type === 'CORE TRIBE')) ||
+          room.is_staff
+        if (isCoreTribe) {
+          coreTribeRoomIds.add(room.id)
+          continue
+        }
+        const ci = parseISO(b.check_in_date)
+        const co = parseISO(b.check_out_date)
+        const nights = Math.max(1, Math.round((co.getTime() - ci.getTime()) / 86400000))
+        if (nights >= 4) fourNightRoomIds.add(room.id)
+        else if (nights === 3) threeNightRoomIds.add(room.id)
       }
+      const coreTribe = coreTribeRoomIds.size
       const nights4 = fourNightRoomIds.size
       const nights3 = threeNightRoomIds.size
       const booked = bookedRoomIds.size
-      const otherBooked = Math.max(0, booked - nights4 - nights3)
+      const otherBooked = Math.max(0, booked - coreTribe - nights4 - nights3)
 
-      const total = filteredRooms.filter((r) => isInInventory(r, date)).length
-      const free = Math.max(0, total - staff - booked)
+      // Hotel contract caps:
+      //   Mon-Thu (Sep 7-10): 110 H3 + 50 H4 = 160 total
+      //   Fri-Mon (Sep 11-14): 220 H3 + 50 H4 = 270 total
+      // Post-event (Sep 15+): nothing.
+      const iso = format(date, 'yyyy-MM-dd')
+      let h3Cap = 0, h4Cap = 0
+      if (iso >= '2026-09-07' && iso <= '2026-09-10') { h3Cap = 110; h4Cap = 50 }
+      else if (iso >= '2026-09-11' && iso <= '2026-09-14') { h3Cap = 220; h4Cap = 50 }
+      const total = hotelFilter === 'H3' ? h3Cap : hotelFilter === 'H4' ? h4Cap : h3Cap + h4Cap
+      const free = Math.max(0, total - booked)
 
       return {
         date,
         label: format(date, 'EEE d'),
-        'Core Tribe': staff,
+        'Core Tribe': coreTribe,
         'SalsaRavers 4 Nights': nights4,
         'SalsaRavers 3 Nights': nights3,
         Other: otherBooked,
         Free: free,
       }
     })
-  }, [days, rooms, guestRooms, bookings, hotelFilter])
+  }, [days, rooms, bookings, guests, hotelFilter])
 
   // Room type breakdown (guest rooms only)
   const h3Breakdown = useMemo(() => {
