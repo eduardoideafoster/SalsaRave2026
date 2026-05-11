@@ -146,13 +146,12 @@ export function StatisticsTab() {
     const h3Booked = h3Guest.filter((r) => bookedRoomIds.has(r.id)).length
     const h4Booked = h4Guest.filter((r) => bookedRoomIds.has(r.id)).length
 
-    // Capacity ramps based on `available_from` per room.
-    // 4-night capacity = rooms whose available_from <= Sep 10 (Thu, when 4N guests check in)
-    // 3-night capacity = rooms whose available_from <= Sep 11 (Fri) — full event inventory
-    const isAvailableBy = (r: typeof rooms[number], iso: string) =>
-      r.status !== 'maintenance' && r.status !== 'blocked' && r.available_from <= iso
-    const inventoryThu = guestRooms.filter((r) => isAvailableBy(r, '2026-09-10')).length
-    const inventoryFri = guestRooms.filter((r) => isAvailableBy(r, '2026-09-11')).length
+    // Capacity per night follows the hotel's hard contract:
+    //   160 rooms open Mon–Thu, 110 more open from Fri (270 total).
+    // This is independent of how `rooms.available_from` is set per row, which
+    // can drift if some rooms are flagged early for staff or special cases.
+    const inventoryThu = 160
+    const inventoryFri = 270
     // Distinct rooms in use on each night
     // Checkout date is inclusive (the room is still considered occupied on the day a guest leaves).
     const roomsOnSep10 = new Set(
