@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { format, parseISO, isSameDay, isBefore } from 'date-fns'
+import { format, parseISO, isSameDay, isBefore, isAfter } from 'date-fns'
 import { LogIn, LogOut, BedDouble } from 'lucide-react'
 
 interface Props {
