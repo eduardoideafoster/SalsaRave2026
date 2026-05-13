@@ -70,7 +70,11 @@ const typeLabels: Record<string, string> = {
   quadruple: 'Quadruple',
 }
 
-export function RoomsTab() {
+interface RoomsTabProps {
+  onOpenGuest?: (id: string) => void
+}
+
+export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
   const t = useT()
   const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
@@ -130,9 +134,17 @@ export function RoomsTab() {
   }
 
   const filteredRooms = rooms.filter((room) => {
+    const q = searchQuery.toLowerCase()
+    const occOf = occupantsByRoom.get(room.id) ?? []
     const matchesSearch =
-      room.room_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      room.room_type.toLowerCase().includes(searchQuery.toLowerCase())
+      !q ||
+      room.room_number.toLowerCase().includes(q) ||
+      room.room_type.toLowerCase().includes(q) ||
+      occOf.some(
+        (g) =>
+          g.full_name.toLowerCase().includes(q) ||
+          g.order_code.toLowerCase().includes(q),
+      )
     const matchesHotel = hotelFilter === 'all' || room.hotel === hotelFilter
     const matchesUse =
       useFilter === 'all' ||
@@ -903,7 +915,20 @@ export function RoomsTab() {
               </div>
               {occ.length > 0 ? (
                 <div className="text-xs text-muted-foreground">
-                  <span className="text-foreground">{occ.map((g) => g.full_name).join(', ')}</span>
+                  <span className="text-foreground">
+                    {occ.map((g, i) => (
+                      <span key={g.id}>
+                        {i > 0 && ', '}
+                        <button
+                          type="button"
+                          onClick={() => onOpenGuest?.(g.id)}
+                          className="hover:text-primary underline-offset-2 hover:underline"
+                        >
+                          {g.full_name}
+                        </button>
+                      </span>
+                    ))}
+                  </span>
                 </div>
               ) : (
                 <div className="text-xs text-muted-foreground">
@@ -1115,7 +1140,20 @@ export function RoomsTab() {
                         const full = occ.length >= room.capacity
                         return (
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-foreground truncate max-w-[220px]" title={names}>{names}</span>
+                            <span className="text-foreground truncate max-w-[220px]" title={names}>
+                              {occ.map((g, i) => (
+                                <span key={g.id}>
+                                  {i > 0 && ', '}
+                                  <button
+                                    type="button"
+                                    onClick={() => onOpenGuest?.(g.id)}
+                                    className="hover:text-primary underline-offset-2 hover:underline"
+                                  >
+                                    {g.full_name}
+                                  </button>
+                                </span>
+                              ))}
+                            </span>
                             <span className={full ? 'text-red-400' : 'text-emerald-400'}>
                               {occ.length}/{room.capacity}
                             </span>
@@ -1195,6 +1233,10 @@ export function RoomsTab() {
         open={detailRoom !== null}
         onOpenChange={(o) => { if (!o) setDetailRoom(null) }}
         onChanged={fetchRooms}
+        onOpenGuest={(id) => {
+          setDetailRoom(null)
+          onOpenGuest?.(id)
+        }}
       />
     </div>
   )
