@@ -22,6 +22,7 @@ interface Props {
   onOpenChange: (open: boolean) => void
   onChanged: () => void
   onRequestChangeRoom: (guest: Guest) => void
+  onOpenGuest?: (id: string) => void
 }
 
 export function GuestDetailDialog({
@@ -33,6 +34,7 @@ export function GuestDetailDialog({
   onOpenChange,
   onChanged,
   onRequestChangeRoom,
+  onOpenGuest,
 }: Props) {
   const supabase = createClient()
   const [addSearch, setAddSearch] = useState('')
@@ -60,35 +62,45 @@ export function GuestDetailDialog({
   const totalInRoom = roommates.length + (booking ? 1 : 0)
   const freeBeds = room ? room.capacity - totalInRoom : 0
 
-  // Candidates to add: unassigned guests in the same hotel with overlapping dates
-  const assignedGuestIds = new Set(
-    bookings.filter((b) => b.status !== 'cancelled').map((b) => b.guest_id),
-  )
+  // Candidates to add: any guest with dates set, not already in this room.
+  // If they are already in another room, the booking is moved (deleted + reinserted).
   const candidates = useMemo(() => {
     if (!room) return []
-    const term = addSearch.toLowerCase()
+    const term = addSearch.trim().toLowerCase()
+    if (term.length < 2) return []
+    const inThisRoom = new Set(
+      bookings
+        .filter((b) => b.room_id === room.id && b.status !== 'cancelled')
+        .map((b) => b.guest_id),
+    )
     return guests
-      .filter((g) => !assignedGuestIds.has(g.id))
-      .filter((g) => g.hotel === room.hotel)
-      .filter((g) => g.check_in_date && g.check_out_date)
+      .filter((g) => !inThisRoom.has(g.id))
       .filter((g) =>
-        !term ||
         g.full_name.toLowerCase().includes(term) ||
         g.order_code.toLowerCase().includes(term),
       )
-      .slice(0, 20)
+      .slice(0, 30)
   }, [guests, room, addSearch, bookings])
 
   async function addOccupant(g: Guest) {
-    if (!room || !g.check_in_date || !g.check_out_date) return
+    if (!room) return
     setBusy(g.id)
+    const existing = bookings.find((b) => b.guest_id === g.id && b.status !== 'cancelled')
+    if (existing) {
+      await supabase.from('bookings').delete().eq('id', existing.id)
+    }
+    const checkIn = g.check_in_date ?? room.available_from
+    const checkOut = g.check_out_date ?? '2026-09-14'
     await supabase.from('bookings').insert({
       guest_id: g.id,
       room_id: room.id,
-      check_in_date: g.check_in_date,
-      check_out_date: g.check_out_date,
+      check_in_date: checkIn,
+      check_out_date: checkOut,
       status: 'confirmed',
     })
+    if (g.hotel !== room.hotel) {
+      await supabase.from('guests').update({ hotel: room.hotel }).eq('id', g.id)
+    }
     setBusy(null)
     setAddSearch('')
     onChanged()
@@ -196,12 +208,16 @@ export function GuestDetailDialog({
               <div className="divide-y divide-border rounded-md border border-border">
                 {roommates.map(({ booking: b, guest: g }) => (
                   <div key={b.id} className="flex items-center justify-between px-3 py-2">
-                    <div>
-                      <div className="text-sm font-medium text-foreground">{g!.full_name}</div>
+                    <button
+                      type="button"
+                      onClick={() => onOpenGuest?.(g!.id)}
+                      className="text-left flex-1 hover:bg-secondary/40 rounded px-1 -mx-1"
+                    >
+                      <div className="text-sm font-medium text-foreground hover:text-primary">{g!.full_name}</div>
                       <div className="text-xs text-muted-foreground">
                         {g!.role} · {g!.country ?? '—'} · order {g!.order_code}
                       </div>
-                    </div>
+                    </button>
                     <Button
                       size="icon"
                       variant="ghost"
@@ -229,7 +245,7 @@ export function GuestDetailDialog({
                 <div className="relative mb-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search unassigned guests (same hotel)..."
+                    placeholder="Search guests by name or order…"
                     value={addSearch}
                     onChange={(e) => setAddSearch(e.target.value)}
                     className="pl-10 bg-secondary border-border"
@@ -237,25 +253,38 @@ export function GuestDetailDialog({
                 </div>
                 {addSearch && (
                   <div className="max-h-56 overflow-y-auto rounded-md border border-border divide-y divide-border">
-                    {candidates.map((g) => (
-                      <button
-                        key={g.id}
-                        onClick={() => addOccupant(g)}
-                        disabled={busy === g.id}
-                        className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-secondary/50 disabled:opacity-50"
-                      >
-                        <div>
-                          <div className="text-sm font-medium text-foreground">{g.full_name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {g.role} · {g.country ?? '—'} · {g.ticket_type}
+                    {candidates.map((g) => {
+                      const currentBooking = bookings.find(
+                        (b) => b.guest_id === g.id && b.status !== 'cancelled',
+                      )
+                      const currentRoom = currentBooking
+                        ? rooms.find((r) => r.id === currentBooking.room_id)
+                        : null
+                      return (
+                        <button
+                          key={g.id}
+                          onClick={() => addOccupant(g)}
+                          disabled={busy === g.id}
+                          className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-secondary/50 disabled:opacity-50"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-foreground truncate">{g.full_name}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {g.role} · {g.country ?? '—'} · {g.ticket_type}
+                              {currentRoom && (
+                                <>
+                                  {' '}· <span className="text-amber-400">currently in {currentRoom.room_number}</span>
+                                </>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <UserPlus className="size-4 text-primary" />
-                      </button>
-                    ))}
+                          <UserPlus className="size-4 text-primary shrink-0" />
+                        </button>
+                      )
+                    })}
                     {candidates.length === 0 && (
                       <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                        No matching unassigned guests
+                        No matching guests
                       </div>
                     )}
                   </div>

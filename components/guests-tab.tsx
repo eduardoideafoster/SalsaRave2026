@@ -89,7 +89,13 @@ const hotelColors: Record<string, string> = {
   H4: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
 }
 
-export function GuestsTab() {
+interface GuestsTabProps {
+  openGuestId?: string | null
+  onOpenGuestHandled?: () => void
+  onOpenGuest?: (id: string) => void
+}
+
+export function GuestsTab({ openGuestId, onOpenGuestHandled, onOpenGuest }: GuestsTabProps = {}) {
   const t = useT()
   const [guests, setGuests] = useState<Guest[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
@@ -141,6 +147,17 @@ export function GuestsTab() {
   useEffect(() => {
     fetchAll()
   }, [fetchAll])
+
+  // External nav hook: when openGuestId is set, open that guest's detail dialog
+  // and notify the caller so they can clear the request.
+  useEffect(() => {
+    if (!openGuestId) return
+    const g = guests.find((x) => x.id === openGuestId)
+    if (g) {
+      setDetailGuest(g)
+      onOpenGuestHandled?.()
+    }
+  }, [openGuestId, guests, onOpenGuestHandled])
 
   // Lookup: guest_id -> assigned room_number + room_type (via active booking).
   // Must be declared BEFORE filteredGuests — the filter callback uses both.
@@ -1192,6 +1209,14 @@ export function GuestsTab() {
         onOpenChange={(open) => !open && setDetailGuest(null)}
         onChanged={fetchAll}
         onRequestChangeRoom={(g) => setAssignGuest(g)}
+        onOpenGuest={(id) => {
+          const g = guests.find((x) => x.id === id)
+          if (g) setDetailGuest(g)
+          else {
+            setDetailGuest(null)
+            onOpenGuest?.(id)
+          }
+        }}
       />
     </div>
   )
