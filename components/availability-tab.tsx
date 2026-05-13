@@ -354,9 +354,9 @@ export function AvailabilityTab() {
               <Bar dataKey="Core Tribe" stackId="a" fill="#a78bfa" />
               <Bar dataKey="SalsaRavers 4 Nights" stackId="a" fill="#116dff" />
               <Bar dataKey="SalsaRavers 3 Nights" stackId="a" fill="#60a5fa" />
-              <Bar dataKey="Other" stackId="a" fill="#f59e0b" />
+              <Bar dataKey="Other" stackId="a" fill="#10b981" />
               <Bar dataKey="Reserved" stackId="a" fill="#475569" />
-              <Bar dataKey="H3 Free" stackId="a" fill="#10b981" />
+              <Bar dataKey="H3 Free" stackId="a" fill="#f59e0b" />
               <Bar dataKey="H4 Free" stackId="a" fill="#14b8a6" />
             </BarChart>
           </ResponsiveContainer>
