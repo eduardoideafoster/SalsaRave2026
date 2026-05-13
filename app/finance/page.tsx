@@ -11,10 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Trash2, Plus, LogOut, Upload } from 'lucide-react'
+import { Trash2, Plus, LogOut, Upload, Globe } from 'lucide-react'
 import { logout } from './login/actions'
 import { importPaymentsXlsx } from './actions'
 import { computeHotelCost } from '@/lib/finance/hotel-cost'
+import { useLang, useT } from '@/lib/i18n'
 import { useRouter } from 'next/navigation'
 
 interface Entry {
@@ -57,12 +58,28 @@ const CATEGORIES_EXPENSE = [
   'Other',
 ]
 
+const CATEGORY_KEY: Record<string, string> = {
+  Tickets: 'finance.cat.tickets',
+  Sponsorship: 'finance.cat.sponsorship',
+  'Other income': 'finance.cat.otherIncome',
+  Hotel: 'finance.cat.hotel',
+  Catering: 'finance.cat.catering',
+  Production: 'finance.cat.production',
+  Artists: 'finance.cat.artists',
+  Marketing: 'finance.cat.marketing',
+  Logistics: 'finance.cat.logistics',
+  Other: 'finance.cat.other',
+}
+
 const fmt = (n: number) =>
   n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 
 export default function FinancePage() {
   const supabase = createClient()
   const router = useRouter()
+  const t = useT()
+  const { lang, setLang } = useLang()
+  const tCat = (cat: string) => (CATEGORY_KEY[cat] ? t(CATEGORY_KEY[cat]) : cat)
   const [entries, setEntries] = useState<Entry[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [bookings, setBookings] = useState<BookingRow[]>([])
@@ -141,23 +158,27 @@ export default function FinancePage() {
   }
 
   const remove = async (id: string) => {
-    if (!window.confirm('Delete this entry?')) return
+    if (!window.confirm(t('finance.deleteConfirm'))) return
     await supabase.from('finance_entries').delete().eq('id', id)
     load()
   }
 
   const onImport = async (file: File) => {
-    setImportMsg('Importing…')
+    setImportMsg(t('finance.importing'))
     const fd = new FormData()
     fd.append('file', file)
     const res = await importPaymentsXlsx(fd)
     if (res.ok) {
       setImportMsg(
-        `Imported ${res.inserted} new + ${res.updated} updated (total ${fmt(res.totalPrice)})`,
+        t('finance.imported', {
+          inserted: res.inserted,
+          updated: res.updated,
+          amount: fmt(res.totalPrice),
+        }),
       )
       load()
     } else {
-      setImportMsg(`Error: ${res.error}`)
+      setImportMsg(t('finance.importError', { msg: res.error }))
     }
   }
 
@@ -166,21 +187,46 @@ export default function FinancePage() {
     router.replace('/finance/login')
   }
 
-  if (loading) return <div className="p-6 text-muted-foreground">Loading…</div>
+  if (loading) return <div className="p-6 text-muted-foreground">{t('finance.loading')}</div>
 
   return (
     <div className="min-h-screen p-4 sm:p-6 space-y-4 max-w-5xl mx-auto">
       <header className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold text-foreground">Finance</h1>
-        <Button variant="ghost" size="sm" onClick={onLogout}>
-          <LogOut className="size-4 mr-1" /> Log out
-        </Button>
+        <h1 className="text-2xl font-bold text-foreground">{t('finance.title')}</h1>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-md border border-border bg-secondary/30 p-0.5">
+            <Globe className="size-3.5 text-muted-foreground ml-1" />
+            <button
+              type="button"
+              onClick={() => setLang('en')}
+              className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                lang === 'en' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+              aria-pressed={lang === 'en'}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => setLang('es')}
+              className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                lang === 'es' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+              aria-pressed={lang === 'es'}
+            >
+              ES
+            </button>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onLogout}>
+            <LogOut className="size-4 mr-1" /> {t('finance.logout')}
+          </Button>
+        </div>
       </header>
 
       {/* Auto totals: payments vs hotel cost */}
       <section className="bg-card border border-border rounded-lg p-3 sm:p-4 space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <h2 className="font-semibold text-foreground">Resumen</h2>
+          <h2 className="font-semibold text-foreground">{t('finance.summary')}</h2>
           <div className="flex items-center gap-2">
             <input
               ref={fileInputRef}
@@ -198,7 +244,7 @@ export default function FinancePage() {
               variant="secondary"
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload className="size-4 mr-1" /> Importar pagos XLSX
+              <Upload className="size-4 mr-1" /> {t('finance.import')}
             </Button>
           </div>
         </div>
@@ -206,21 +252,42 @@ export default function FinancePage() {
           <p className="text-xs text-muted-foreground">{importMsg}</p>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <StatCard label="Pagado (bruto)" value={totalPaid} tone="emerald" hint={`${payments.length} attendees`} />
-          <StatCard label="Coste hotel" value={hotelCost.total} tone="rose" hint={`${hotelCost.nights} noches únicas`} />
-          <StatCard label="Margen bruto" value={grossMargin} tone={grossMargin >= 0 ? 'emerald' : 'rose'} />
-          <StatCard label="Ingresos extra (manuales)" value={manual.income} tone="emerald" />
-          <StatCard label="Gastos (manuales)" value={manual.expense} tone="rose" />
-          <StatCard label="Beneficio neto" value={netProfit} tone={netProfit >= 0 ? 'emerald' : 'rose'} />
+          <StatCard
+            label={t('finance.paid')}
+            value={totalPaid}
+            tone="emerald"
+            hint={t('finance.paidHint', { n: payments.length })}
+          />
+          <StatCard
+            label={t('finance.hotelCost')}
+            value={hotelCost.total}
+            tone="rose"
+            hint={t('finance.hotelCostHint', { n: hotelCost.nights })}
+          />
+          <StatCard
+            label={t('finance.grossMargin')}
+            value={grossMargin}
+            tone={grossMargin >= 0 ? 'emerald' : 'rose'}
+          />
+          <StatCard label={t('finance.extraIncome')} value={manual.income} tone="emerald" />
+          <StatCard label={t('finance.manualExpenses')} value={manual.expense} tone="rose" />
+          <StatCard
+            label={t('finance.netProfit')}
+            value={netProfit}
+            tone={netProfit >= 0 ? 'emerald' : 'rose'}
+          />
         </div>
         <div className="text-xs text-muted-foreground pt-1">
-          Coste hotel H3: {fmt(hotelCost.byHotel.H3)} · H4: {fmt(hotelCost.byHotel.H4)} · RavePass sin coste de hotel
+          {t('finance.ravepassNote', {
+            h3: fmt(hotelCost.byHotel.H3),
+            h4: fmt(hotelCost.byHotel.H4),
+          })}
         </div>
       </section>
 
       {/* Add entry */}
       <section className="bg-card border border-border rounded-lg p-3 sm:p-4 space-y-3">
-        <h2 className="font-semibold text-foreground">Añadir gasto / ingreso manual</h2>
+        <h2 className="font-semibold text-foreground">{t('finance.addManual')}</h2>
         <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
           <Select
             value={form.type}
@@ -234,27 +301,27 @@ export default function FinancePage() {
           >
             <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
             <SelectContent className="bg-card border-border">
-              <SelectItem value="expense">Expense</SelectItem>
-              <SelectItem value="income">Income</SelectItem>
+              <SelectItem value="expense">{t('finance.typeExpense')}</SelectItem>
+              <SelectItem value="income">{t('finance.typeIncome')}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
             <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
             <SelectContent className="bg-card border-border">
               {(form.type === 'income' ? CATEGORIES_INCOME : CATEGORIES_EXPENSE).map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
+                <SelectItem key={c} value={c}>{tCat(c)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Input
-            placeholder="Description"
+            placeholder={t('finance.formDescription')}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             className="bg-secondary border-border col-span-2"
           />
           <Input
             type="number"
-            placeholder="€"
+            placeholder={t('finance.formAmount')}
             step="0.01"
             value={form.amount_eur}
             onChange={(e) => setForm({ ...form, amount_eur: e.target.value })}
@@ -268,7 +335,7 @@ export default function FinancePage() {
           />
         </div>
         <Button onClick={add} disabled={busy || !form.amount_eur}>
-          <Plus className="size-4 mr-1" /> Add
+          <Plus className="size-4 mr-1" /> {t('finance.add')}
         </Button>
       </section>
 
@@ -278,11 +345,11 @@ export default function FinancePage() {
           <table className="w-full text-sm min-w-max">
             <thead className="bg-secondary text-muted-foreground uppercase text-xs">
               <tr>
-                <th className="text-left px-3 py-2">Date</th>
-                <th className="text-left px-3 py-2">Type</th>
-                <th className="text-left px-3 py-2">Category</th>
-                <th className="text-left px-3 py-2">Description</th>
-                <th className="text-right px-3 py-2">Amount</th>
+                <th className="text-left px-3 py-2">{t('finance.colDate')}</th>
+                <th className="text-left px-3 py-2">{t('finance.colType')}</th>
+                <th className="text-left px-3 py-2">{t('finance.colCategory')}</th>
+                <th className="text-left px-3 py-2">{t('finance.colDescription')}</th>
+                <th className="text-right px-3 py-2">{t('finance.colAmount')}</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
@@ -298,10 +365,10 @@ export default function FinancePage() {
                           : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
                       }`}
                     >
-                      {e.type}
+                      {e.type === 'income' ? t('finance.typeIncome') : t('finance.typeExpense')}
                     </span>
                   </td>
-                  <td className="px-3 py-2">{e.category}</td>
+                  <td className="px-3 py-2">{tCat(e.category)}</td>
                   <td className="px-3 py-2 text-foreground">{e.description ?? '—'}</td>
                   <td
                     className={`px-3 py-2 text-right font-mono ${
@@ -326,7 +393,7 @@ export default function FinancePage() {
               {entries.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                    No entries yet.
+                    {t('finance.noEntries')}
                   </td>
                 </tr>
               )}
@@ -337,7 +404,7 @@ export default function FinancePage() {
 
       {/* By category breakdown */}
       <section className="bg-card border border-border rounded-lg p-3 sm:p-4">
-        <h2 className="font-semibold text-foreground mb-2">By category (manuales)</h2>
+        <h2 className="font-semibold text-foreground mb-2">{t('finance.byCategory')}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {[...manual.byCategory.entries()]
             .sort((a, b) => b[1] - a[1])
@@ -346,8 +413,10 @@ export default function FinancePage() {
               return (
                 <div key={key} className="flex items-center justify-between bg-secondary/30 border border-border rounded px-3 py-2">
                   <div>
-                    <div className="text-sm text-foreground">{cat}</div>
-                    <div className="text-xs text-muted-foreground">{type}</div>
+                    <div className="text-sm text-foreground">{tCat(cat)}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {type === 'income' ? t('finance.typeIncome') : t('finance.typeExpense')}
+                    </div>
                   </div>
                   <div
                     className={`font-mono text-sm ${
@@ -360,7 +429,7 @@ export default function FinancePage() {
               )
             })}
           {manual.byCategory.size === 0 && (
-            <div className="text-sm text-muted-foreground italic">No data.</div>
+            <div className="text-sm text-muted-foreground italic">{t('finance.noData')}</div>
           )}
         </div>
       </section>
