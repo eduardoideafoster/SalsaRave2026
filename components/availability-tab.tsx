@@ -132,6 +132,23 @@ export function AvailabilityTab() {
     const filterHotel = (r: Room) => hotelFilter === 'all' || r.hotel === hotelFilter
     const filteredRooms = rooms.filter(filterHotel)
 
+    // Pre-compute, for each contract block, which rooms are taken at ANY night
+    // inside that block. A guest who only checks in on Thursday still consumes
+    // a room in the Mon-Thu cap from Monday onwards.
+    function roomsTakenInBlock(blockStart: string, blockEnd: string) {
+      const ids = new Set<string>()
+      for (const b of bookings) {
+        if (b.status === 'cancelled') continue
+        if (b.check_in_date > blockEnd) continue
+        if (b.check_out_date < blockStart) continue
+        const room = filteredRooms.find((r) => r.id === b.room_id)
+        if (room) ids.add(room.id)
+      }
+      return ids
+    }
+    const thuBlockTaken = roomsTakenInBlock('2026-09-07', '2026-09-10')
+    const friBlockTaken = roomsTakenInBlock('2026-09-11', '2026-09-14')
+
     return days.map((date) => {
       const activeOnDate = bookings.filter((b) => {
         if (b.status === 'cancelled') return false
@@ -167,16 +184,22 @@ export function AvailabilityTab() {
       const booked = bookedRoomIds.size
       const otherBooked = Math.max(0, booked - coreTribe - nights4 - nights3)
 
-      // Hotel contract caps:
-      //   Mon-Thu (Sep 7-10): 110 H3 + 50 H4 = 160 total
-      //   Fri-Mon (Sep 11-14): 220 H3 + 50 H4 = 270 total
-      // Post-event (Sep 15+): nothing.
       const iso = format(date, 'yyyy-MM-dd')
       let h3Cap = 0, h4Cap = 0
-      if (iso >= '2026-09-07' && iso <= '2026-09-10') { h3Cap = 110; h4Cap = 50 }
-      else if (iso >= '2026-09-11' && iso <= '2026-09-14') { h3Cap = 220; h4Cap = 50 }
+      let takenInBlock = 0
+      if (iso >= '2026-09-07' && iso <= '2026-09-10') {
+        h3Cap = 110
+        h4Cap = 50
+        takenInBlock = thuBlockTaken.size
+      } else if (iso >= '2026-09-11' && iso <= '2026-09-14') {
+        h3Cap = 220
+        h4Cap = 50
+        takenInBlock = friBlockTaken.size
+      }
       const total = hotelFilter === 'H3' ? h3Cap : hotelFilter === 'H4' ? h4Cap : h3Cap + h4Cap
-      const free = Math.max(0, total - booked)
+      // "Reserved": rooms already taken at some point in the block but not occupied tonight.
+      const reserved = Math.max(0, takenInBlock - booked)
+      const free = Math.max(0, total - takenInBlock)
 
       return {
         date,
@@ -185,6 +208,7 @@ export function AvailabilityTab() {
         'SalsaRavers 4 Nights': nights4,
         'SalsaRavers 3 Nights': nights3,
         Other: otherBooked,
+        Reserved: reserved,
         Free: free,
       }
     })
@@ -324,6 +348,7 @@ export function AvailabilityTab() {
               <Bar dataKey="SalsaRavers 4 Nights" stackId="a" fill="#116dff" />
               <Bar dataKey="SalsaRavers 3 Nights" stackId="a" fill="#60a5fa" />
               <Bar dataKey="Other" stackId="a" fill="#f59e0b" />
+              <Bar dataKey="Reserved" stackId="a" fill="#475569" />
               <Bar dataKey="Free" stackId="a" fill="#10b981" />
             </BarChart>
           </ResponsiveContainer>
