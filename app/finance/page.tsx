@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -11,8 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Trash2, Plus, LogOut } from 'lucide-react'
+import { Trash2, Plus, LogOut, Upload } from 'lucide-react'
 import { logout } from './login/actions'
+import { importPaymentsXlsx } from './actions'
+import { computeHotelCost } from '@/lib/finance/hotel-cost'
 import { useRouter } from 'next/navigation'
 
 interface Entry {
@@ -23,6 +25,25 @@ interface Entry {
   amount_eur: number
   date: string
   created_at: string
+}
+
+interface Payment {
+  locator: number
+  order_code: string
+  ticket: string
+  price_eur: number
+}
+
+interface BookingRow {
+  room_id: string
+  check_in_date: string
+  check_out_date: string
+}
+
+interface RoomRow {
+  id: string
+  hotel: 'H3' | 'H4'
+  room_type: 'single' | 'double' | 'triple' | 'quadruple'
 }
 
 const CATEGORIES_INCOME = ['Tickets', 'Sponsorship', 'Other income']
@@ -36,10 +57,16 @@ const CATEGORIES_EXPENSE = [
   'Other',
 ]
 
+const fmt = (n: number) =>
+  n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+
 export default function FinancePage() {
   const supabase = createClient()
   const router = useRouter()
   const [entries, setEntries] = useState<Entry[]>([])
+  const [payments, setPayments] = useState<Payment[]>([])
+  const [bookings, setBookings] = useState<BookingRow[]>([])
+  const [rooms, setRooms] = useState<RoomRow[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({
     type: 'expense' as 'income' | 'expense',
@@ -49,13 +76,20 @@ export default function FinancePage() {
     date: new Date().toISOString().slice(0, 10),
   })
   const [busy, setBusy] = useState(false)
+  const [importMsg, setImportMsg] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('finance_entries')
-      .select('*')
-      .order('date', { ascending: false })
-    setEntries((data as Entry[]) ?? [])
+    const [entriesRes, paymentsRes, bookingsRes, roomsRes] = await Promise.all([
+      supabase.from('finance_entries').select('*').order('date', { ascending: false }),
+      supabase.from('payments').select('locator, order_code, ticket, price_eur'),
+      supabase.from('bookings').select('room_id, check_in_date, check_out_date'),
+      supabase.from('rooms').select('id, hotel, room_type'),
+    ])
+    setEntries((entriesRes.data as Entry[]) ?? [])
+    setPayments((paymentsRes.data as Payment[]) ?? [])
+    setBookings((bookingsRes.data as BookingRow[]) ?? [])
+    setRooms((roomsRes.data as RoomRow[]) ?? [])
     setLoading(false)
   }, [supabase])
 
@@ -63,7 +97,7 @@ export default function FinancePage() {
     load()
   }, [load])
 
-  const totals = useMemo(() => {
+  const manual = useMemo(() => {
     let income = 0
     let expense = 0
     const byCategory = new Map<string, number>()
@@ -74,8 +108,21 @@ export default function FinancePage() {
       const key = `${e.type}:${e.category}`
       byCategory.set(key, (byCategory.get(key) ?? 0) + amt)
     }
-    return { income, expense, net: income - expense, byCategory }
+    return { income, expense, byCategory }
   }, [entries])
+
+  const totalPaid = useMemo(
+    () => payments.reduce((a, p) => a + Number(p.price_eur || 0), 0),
+    [payments],
+  )
+
+  const hotelCost = useMemo(
+    () => computeHotelCost(bookings, rooms),
+    [bookings, rooms],
+  )
+
+  const grossMargin = totalPaid - hotelCost.total
+  const netProfit = totalPaid + manual.income - hotelCost.total - manual.expense
 
   const add = async () => {
     const amt = parseFloat(form.amount_eur)
@@ -99,6 +146,21 @@ export default function FinancePage() {
     load()
   }
 
+  const onImport = async (file: File) => {
+    setImportMsg('Importing…')
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await importPaymentsXlsx(fd)
+    if (res.ok) {
+      setImportMsg(
+        `Imported ${res.inserted} new + ${res.updated} updated (total ${fmt(res.totalPrice)})`,
+      )
+      load()
+    } else {
+      setImportMsg(`Error: ${res.error}`)
+    }
+  }
+
   const onLogout = async () => {
     await logout()
     router.replace('/finance/login')
@@ -115,16 +177,50 @@ export default function FinancePage() {
         </Button>
       </header>
 
-      {/* Totals */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <StatCard label="Income" value={totals.income} tone="emerald" />
-        <StatCard label="Expense" value={totals.expense} tone="rose" />
-        <StatCard label="Net" value={totals.net} tone={totals.net >= 0 ? 'emerald' : 'rose'} />
-      </div>
+      {/* Auto totals: payments vs hotel cost */}
+      <section className="bg-card border border-border rounded-lg p-3 sm:p-4 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h2 className="font-semibold text-foreground">Resumen</h2>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) onImport(f)
+                e.target.value = ''
+              }}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="size-4 mr-1" /> Importar pagos XLSX
+            </Button>
+          </div>
+        </div>
+        {importMsg && (
+          <p className="text-xs text-muted-foreground">{importMsg}</p>
+        )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <StatCard label="Pagado (bruto)" value={totalPaid} tone="emerald" hint={`${payments.length} attendees`} />
+          <StatCard label="Coste hotel" value={hotelCost.total} tone="rose" hint={`${hotelCost.nights} noches únicas`} />
+          <StatCard label="Margen bruto" value={grossMargin} tone={grossMargin >= 0 ? 'emerald' : 'rose'} />
+          <StatCard label="Ingresos extra (manuales)" value={manual.income} tone="emerald" />
+          <StatCard label="Gastos (manuales)" value={manual.expense} tone="rose" />
+          <StatCard label="Beneficio neto" value={netProfit} tone={netProfit >= 0 ? 'emerald' : 'rose'} />
+        </div>
+        <div className="text-xs text-muted-foreground pt-1">
+          Coste hotel H3: {fmt(hotelCost.byHotel.H3)} · H4: {fmt(hotelCost.byHotel.H4)} · RavePass sin coste de hotel
+        </div>
+      </section>
 
       {/* Add entry */}
       <section className="bg-card border border-border rounded-lg p-3 sm:p-4 space-y-3">
-        <h2 className="font-semibold text-foreground">Add entry</h2>
+        <h2 className="font-semibold text-foreground">Añadir gasto / ingreso manual</h2>
         <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
           <Select
             value={form.type}
@@ -241,9 +337,9 @@ export default function FinancePage() {
 
       {/* By category breakdown */}
       <section className="bg-card border border-border rounded-lg p-3 sm:p-4">
-        <h2 className="font-semibold text-foreground mb-2">By category</h2>
+        <h2 className="font-semibold text-foreground mb-2">By category (manuales)</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {[...totals.byCategory.entries()]
+          {[...manual.byCategory.entries()]
             .sort((a, b) => b[1] - a[1])
             .map(([key, sum]) => {
               const [type, cat] = key.split(':')
@@ -263,7 +359,7 @@ export default function FinancePage() {
                 </div>
               )
             })}
-          {totals.byCategory.size === 0 && (
+          {manual.byCategory.size === 0 && (
             <div className="text-sm text-muted-foreground italic">No data.</div>
           )}
         </div>
@@ -276,16 +372,19 @@ function StatCard({
   label,
   value,
   tone,
+  hint,
 }: {
   label: string
   value: number
   tone: 'emerald' | 'rose'
+  hint?: string
 }) {
   const color = tone === 'emerald' ? 'text-emerald-400' : 'text-rose-400'
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={`text-2xl font-bold ${color} mt-1`}>{value.toFixed(2)} €</div>
+      <div className={`text-2xl font-bold ${color} mt-1`}>{fmt(value)}</div>
+      {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
     </div>
   )
 }
