@@ -3,6 +3,13 @@
 import * as XLSX from 'xlsx'
 import { createClient } from '@/lib/supabase/server'
 
+function parseSaleDate(raw: unknown): string | null {
+  if (raw == null || raw === '') return null
+  const d = raw instanceof Date ? raw : new Date(String(raw))
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString()
+}
+
 interface RawAttendeeRow {
   Locator?: number | string
   Order?: string
@@ -63,7 +70,7 @@ export async function importPaymentsXlsx(formData: FormData): Promise<
       locator,
       attendee_index,
       order_code: String(r.Order).trim(),
-      sale_date: r.Date ? new Date(String(r.Date)).toISOString() : null,
+      sale_date: parseSaleDate(r.Date),
       status: r.Status ?? null,
       ticket: String(r.Ticket).trim(),
       sale_type: r['Sale Type'] ?? null,
