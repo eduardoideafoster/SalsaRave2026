@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
+import { Checkbox } from '@/components/ui/checkbox'
 import { format, parseISO } from 'date-fns'
 
 const roomTypes = ['single', 'double', 'triple', 'quadruple'] as const
@@ -96,6 +97,8 @@ export function RoomsTab() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [sort, setSort] = useState<SortState<RoomSortKey>>({ key: 'room_number', dir: 'asc' })
   const [detailRoom, setDetailRoom] = useState<Room | null>(null)
+  const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(new Set())
+  const [bulkRoomPatch, setBulkRoomPatch] = useState<Partial<Room>>({})
 
   const supabase = createClient()
 
@@ -210,8 +213,48 @@ export function RoomsTab() {
   }
 
   const handleDeleteRoom = async (id: string) => {
+    const room = rooms.find((r) => r.id === id)
+    const label = room ? `room ${room.room_number} (${room.hotel})` : 'this room'
+    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return
     const { error } = await supabase.from('rooms').delete().eq('id', id)
     if (!error) fetchRooms()
+  }
+
+  const toggleSelectedRoom = (id: string) => {
+    setSelectedRoomIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const clearRoomSelection = () => {
+    setSelectedRoomIds(new Set())
+    setBulkRoomPatch({})
+  }
+
+  const applyBulkRoomPatch = async () => {
+    const ids = Array.from(selectedRoomIds)
+    if (ids.length === 0) return
+    const patch = { ...bulkRoomPatch }
+    if (Object.keys(patch).length === 0) return
+    const { error } = await supabase.from('rooms').update(patch).in('id', ids)
+    if (!error) {
+      await fetchRooms()
+      clearRoomSelection()
+    }
+  }
+
+  const deleteSelectedRooms = async () => {
+    const ids = Array.from(selectedRoomIds)
+    if (ids.length === 0) return
+    if (!window.confirm(`Delete ${ids.length} room(s)? This cannot be undone.`)) return
+    const { error } = await supabase.from('rooms').delete().in('id', ids)
+    if (!error) {
+      await fetchRooms()
+      clearRoomSelection()
+    }
   }
 
   // Auto-assign all unassigned guests to empty rooms.
@@ -677,6 +720,129 @@ export function RoomsTab() {
         </div>
       )}
 
+      {selectedRoomIds.size > 0 && (
+        <div className="rounded-md border border-primary/40 bg-primary/5 p-3 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-sm font-medium text-foreground">
+              {selectedRoomIds.size} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="ghost" onClick={clearRoomSelection}>
+                <X className="size-4 mr-1" />Clear
+              </Button>
+              <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300" onClick={deleteSelectedRooms}>
+                <Trash2 className="size-4 mr-1" />Delete selected
+              </Button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 items-end">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Hotel</span>
+              <Select
+                value={bulkRoomPatch.hotel ?? '__skip__'}
+                onValueChange={(v) =>
+                  setBulkRoomPatch({ ...bulkRoomPatch, hotel: v === '__skip__' ? undefined : (v as 'H3' | 'H4') })
+                }
+              >
+                <SelectTrigger className="h-8 w-24 text-sm bg-card border-border"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="__skip__">— skip —</SelectItem>
+                  <SelectItem value="H3">H3</SelectItem>
+                  <SelectItem value="H4">H4</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Type</span>
+              <Select
+                value={(bulkRoomPatch.room_type as string) ?? '__skip__'}
+                onValueChange={(v) =>
+                  setBulkRoomPatch({ ...bulkRoomPatch, room_type: v === '__skip__' ? undefined : (v as Room['room_type']) })
+                }
+              >
+                <SelectTrigger className="h-8 w-32 text-sm bg-card border-border"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="__skip__">— skip —</SelectItem>
+                  <SelectItem value="single">single</SelectItem>
+                  <SelectItem value="double">double</SelectItem>
+                  <SelectItem value="triple">triple</SelectItem>
+                  <SelectItem value="quadruple">quadruple</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Capacity</span>
+              <Input
+                type="number"
+                min={1}
+                max={6}
+                value={bulkRoomPatch.capacity ?? ''}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10)
+                  setBulkRoomPatch({ ...bulkRoomPatch, capacity: Number.isFinite(n) ? n : undefined })
+                }}
+                placeholder="—"
+                className="h-8 w-20 text-sm bg-card border-border"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Status</span>
+              <Select
+                value={(bulkRoomPatch.status as string) ?? '__skip__'}
+                onValueChange={(v) =>
+                  setBulkRoomPatch({ ...bulkRoomPatch, status: v === '__skip__' ? undefined : (v as Room['status']) })
+                }
+              >
+                <SelectTrigger className="h-8 w-36 text-sm bg-card border-border"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="__skip__">— skip —</SelectItem>
+                  <SelectItem value="available">available</SelectItem>
+                  <SelectItem value="occupied">occupied</SelectItem>
+                  <SelectItem value="cleaning">cleaning</SelectItem>
+                  <SelectItem value="maintenance">maintenance</SelectItem>
+                  <SelectItem value="blocked">blocked</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Use</span>
+              <Select
+                value={
+                  bulkRoomPatch.is_staff === undefined ? '__skip__' : bulkRoomPatch.is_staff ? 'staff' : 'guest'
+                }
+                onValueChange={(v) =>
+                  setBulkRoomPatch({
+                    ...bulkRoomPatch,
+                    is_staff: v === '__skip__' ? undefined : v === 'staff',
+                  })
+                }
+              >
+                <SelectTrigger className="h-8 w-28 text-sm bg-card border-border"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="__skip__">— skip —</SelectItem>
+                  <SelectItem value="guest">guest</SelectItem>
+                  <SelectItem value="staff">staff</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Available from</span>
+              <Input
+                type="date"
+                value={bulkRoomPatch.available_from ?? ''}
+                onChange={(e) =>
+                  setBulkRoomPatch({ ...bulkRoomPatch, available_from: e.target.value || undefined })
+                }
+                className="h-8 w-36 text-sm bg-card border-border"
+              />
+            </div>
+            <Button size="sm" onClick={applyBulkRoomPatch} disabled={Object.keys(bulkRoomPatch).length === 0}>
+              <Check className="size-4 mr-1" />Apply to {selectedRoomIds.size}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Mobile card list */}
       <div className="md:hidden space-y-2">
         {sortedRooms.map((room) => {
@@ -691,6 +857,11 @@ export function RoomsTab() {
             <div key={room.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
+                  <Checkbox
+                    checked={selectedRoomIds.has(room.id)}
+                    onCheckedChange={() => toggleSelectedRoom(room.id)}
+                    aria-label={`Select room ${room.room_number}`}
+                  />
                   <button
                     type="button"
                     onClick={() => setDetailRoom(room)}
@@ -754,6 +925,22 @@ export function RoomsTab() {
         <table className="w-full">
           <thead className="bg-secondary">
             <tr>
+              <th className="px-3 py-3 w-10">
+                <Checkbox
+                  checked={
+                    sortedRooms.length > 0 && sortedRooms.every((r) => selectedRoomIds.has(r.id))
+                  }
+                  onCheckedChange={(v) => {
+                    setSelectedRoomIds((prev) => {
+                      const next = new Set(prev)
+                      if (v) for (const r of sortedRooms) next.add(r.id)
+                      else for (const r of sortedRooms) next.delete(r.id)
+                      return next
+                    })
+                  }}
+                  aria-label="Select all visible rooms"
+                />
+              </th>
               <SortHeader label={t('rooms.number')} sortKey="room_number" state={sort} onSort={setSort} />
               <SortHeader label={t('guests.hotel')} sortKey="hotel" state={sort} onSort={setSort} />
               <SortHeader label={t('rooms.type')} sortKey="room_type" state={sort} onSort={setSort} />
@@ -770,6 +957,13 @@ export function RoomsTab() {
               <tr key={room.id} className="bg-card hover:bg-secondary/50 transition-colors">
                 {editingId === room.id ? (
                   <>
+                    <td className="px-3 py-3 w-10">
+                      <Checkbox
+                        checked={selectedRoomIds.has(room.id)}
+                        onCheckedChange={() => toggleSelectedRoom(room.id)}
+                        aria-label={`Select room ${room.room_number}`}
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <Input
                         value={editForm.room_number || ''}
@@ -883,6 +1077,13 @@ export function RoomsTab() {
                   </>
                 ) : (
                   <>
+                    <td className="px-3 py-3 w-10">
+                      <Checkbox
+                        checked={selectedRoomIds.has(room.id)}
+                        onCheckedChange={() => toggleSelectedRoom(room.id)}
+                        aria-label={`Select room ${room.room_number}`}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm font-medium">
                       <button
                         type="button"
@@ -977,7 +1178,7 @@ export function RoomsTab() {
             ))}
             {sortedRooms.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
                   No rooms found
                 </td>
               </tr>
