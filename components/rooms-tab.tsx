@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { SortHeader, compareBy, SortState } from '@/components/sort-header'
 import { useT } from '@/lib/i18n'
 import { RoomDetailDialog } from '@/components/room-detail-dialog'
+import { RoomEditDialog } from '@/components/room-edit-dialog'
 
 type RoomSortKey =
   | 'room_number'
@@ -101,6 +102,7 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [sort, setSort] = useState<SortState<RoomSortKey>>({ key: 'room_number', dir: 'asc' })
   const [detailRoom, setDetailRoom] = useState<Room | null>(null)
+  const [editDialogRoom, setEditDialogRoom] = useState<Room | null>(null)
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(new Set())
   const [bulkRoomPatch, setBulkRoomPatch] = useState<Partial<Room>>({})
 
@@ -462,8 +464,7 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
   }
 
   const startEditing = (room: Room) => {
-    setEditingId(room.id)
-    setEditForm(room)
+    setEditDialogRoom(room)
   }
 
   if (loading) {
@@ -1237,6 +1238,13 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
           setDetailRoom(null)
           onOpenGuest?.(id)
         }}
+      />
+
+      <RoomEditDialog
+        room={editDialogRoom}
+        open={editDialogRoom !== null}
+        onOpenChange={(o) => { if (!o) setEditDialogRoom(null) }}
+        onSaved={fetchRooms}
       />
     </div>
   )

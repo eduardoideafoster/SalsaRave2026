@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox'
 import { AssignRoomDialog } from '@/components/assign-room-dialog'
 import { GuestDetailDialog } from '@/components/guest-detail-dialog'
+import { GuestEditDialog } from '@/components/guest-edit-dialog'
 import { SortHeader, compareBy, SortState } from '@/components/sort-header'
 import { useT } from '@/lib/i18n'
 
@@ -104,6 +105,7 @@ export function GuestsTab({ openGuestId, onOpenGuestHandled, onOpenGuest }: Gues
   const [searchQuery, setSearchQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<Guest>>({})
+  const [editDialogGuest, setEditDialogGuest] = useState<Guest | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [assignGuest, setAssignGuest] = useState<Guest | null>(null)
   const [detailGuest, setDetailGuest] = useState<Guest | null>(null)
@@ -276,8 +278,8 @@ export function GuestsTab({ openGuestId, onOpenGuestHandled, onOpenGuest }: Gues
   }
 
   const startEditing = (guest: Guest) => {
-    setEditingId(guest.id)
-    setEditForm(guest)
+    // Open the responsive modal — easier to use on mobile than the inline-table edit.
+    setEditDialogGuest(guest)
   }
 
   const toggleSelected = (id: string) => {
@@ -1217,6 +1219,13 @@ export function GuestsTab({ openGuestId, onOpenGuestHandled, onOpenGuest }: Gues
             onOpenGuest?.(id)
           }
         }}
+      />
+
+      <GuestEditDialog
+        guest={editDialogGuest}
+        open={editDialogGuest !== null}
+        onOpenChange={(open) => !open && setEditDialogGuest(null)}
+        onSaved={fetchAll}
       />
     </div>
   )
