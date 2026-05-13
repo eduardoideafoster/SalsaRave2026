@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SortHeader, compareBy, SortState } from '@/components/sort-header'
 import { useT } from '@/lib/i18n'
+import { RoomDetailDialog } from '@/components/room-detail-dialog'
 
 type RoomSortKey =
   | 'room_number'
@@ -94,6 +95,7 @@ export function RoomsTab() {
   const [guests, setGuests] = useState<Guest[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [sort, setSort] = useState<SortState<RoomSortKey>>({ key: 'room_number', dir: 'asc' })
+  const [detailRoom, setDetailRoom] = useState<Room | null>(null)
 
   const supabase = createClient()
 
@@ -689,7 +691,13 @@ export function RoomsTab() {
             <div key={room.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-semibold text-foreground font-mono">#{room.room_number}</span>
+                  <button
+                    type="button"
+                    onClick={() => setDetailRoom(room)}
+                    className="font-semibold text-foreground font-mono hover:text-primary underline-offset-2 hover:underline"
+                  >
+                    #{room.room_number}
+                  </button>
                   <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-md border ${hotelColors[room.hotel]}`}>
                     {room.hotel}
                   </span>
@@ -875,7 +883,15 @@ export function RoomsTab() {
                   </>
                 ) : (
                   <>
-                    <td className="px-4 py-3 text-sm font-medium text-foreground">{room.room_number}</td>
+                    <td className="px-4 py-3 text-sm font-medium">
+                      <button
+                        type="button"
+                        onClick={() => setDetailRoom(room)}
+                        className="text-foreground hover:text-primary underline-offset-2 hover:underline"
+                      >
+                        {room.room_number}
+                      </button>
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${hotelColors[room.hotel]}`}>
                         {room.hotel}
@@ -969,6 +985,16 @@ export function RoomsTab() {
           </tbody>
         </table>
       </div>
+
+      <RoomDetailDialog
+        room={detailRoom}
+        rooms={rooms}
+        guests={guests}
+        bookings={bookings}
+        open={detailRoom !== null}
+        onOpenChange={(o) => { if (!o) setDetailRoom(null) }}
+        onChanged={fetchRooms}
+      />
     </div>
   )
 }
