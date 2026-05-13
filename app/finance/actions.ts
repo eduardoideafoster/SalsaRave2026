@@ -20,6 +20,7 @@ interface RawAttendeeRow {
 
 interface ParsedPayment {
   locator: number
+  attendee_index: number
   order_code: string
   sale_date: string | null
   status: string | null
@@ -51,12 +52,16 @@ export async function importPaymentsXlsx(formData: FormData): Promise<
   }
 
   const parsed: ParsedPayment[] = []
+  const indexByLocator = new Map<number, number>()
   for (const r of rows) {
     const locator = Number(r.Locator)
     if (!Number.isFinite(locator) || locator <= 0) continue
     if (!r.Order || !r.Ticket) continue
+    const attendee_index = (indexByLocator.get(locator) ?? 0) + 1
+    indexByLocator.set(locator, attendee_index)
     parsed.push({
       locator,
+      attendee_index,
       order_code: String(r.Order).trim(),
       sale_date: r.Date ? new Date(String(r.Date)).toISOString() : null,
       status: r.Status ?? null,
@@ -77,19 +82,21 @@ export async function importPaymentsXlsx(formData: FormData): Promise<
 
   const { data: existing, error: existingErr } = await supabase
     .from('payments')
-    .select('locator')
+    .select('locator, attendee_index')
   if (existingErr) return { ok: false, error: existingErr.message }
-  const existingLocators = new Set(existing?.map((p) => Number(p.locator)) ?? [])
+  const existingKeys = new Set(
+    (existing ?? []).map((p) => `${p.locator}:${p.attendee_index}`),
+  )
 
   const { error: upsertErr } = await supabase
     .from('payments')
-    .upsert(parsed, { onConflict: 'locator' })
+    .upsert(parsed, { onConflict: 'locator,attendee_index' })
   if (upsertErr) return { ok: false, error: upsertErr.message }
 
   let inserted = 0
   let updated = 0
   for (const p of parsed) {
-    if (existingLocators.has(p.locator)) updated++
+    if (existingKeys.has(`${p.locator}:${p.attendee_index}`)) updated++
     else inserted++
   }
   const totalPrice = parsed.reduce((a, p) => a + p.price_eur, 0)

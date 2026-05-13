@@ -1,10 +1,13 @@
 -- Payments table for the /finance dashboard.
 -- One row per attendee (matches the Eventbrite/goandance Attendees export).
--- The first attendee of an order has the full price; the rest are 0.
--- Sum(price_eur) across the table = total gross revenue (incl. platform fees).
+-- IMPORTANT: Locator is per ORDER, not per attendee — multiple attendees in
+-- the same order share the same locator. We add attendee_index (1..N within
+-- an order) to make rows unique. The first attendee of an order has the full
+-- price; the rest are 0.
 
 CREATE TABLE IF NOT EXISTS payments (
-  locator bigint PRIMARY KEY,
+  locator bigint NOT NULL,
+  attendee_index int NOT NULL,
   order_code text NOT NULL,
   sale_date timestamptz,
   status text,
@@ -16,7 +19,8 @@ CREATE TABLE IF NOT EXISTS payments (
   phone text,
   role text,
   country text,
-  imported_at timestamptz DEFAULT now()
+  imported_at timestamptz DEFAULT now(),
+  PRIMARY KEY (locator, attendee_index)
 );
 
 CREATE INDEX IF NOT EXISTS idx_payments_order_code ON payments(order_code);
