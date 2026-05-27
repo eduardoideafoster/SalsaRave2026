@@ -171,8 +171,10 @@ export default function FinancePage() {
     if (res.ok) {
       setImportMsg(
         t('finance.imported', {
+          mode: res.mode,
           inserted: res.inserted,
           updated: res.updated,
+          skipped: res.skipped,
           amount: fmt(res.totalPrice),
         }),
       )
