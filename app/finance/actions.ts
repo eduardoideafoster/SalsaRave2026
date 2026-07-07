@@ -60,6 +60,63 @@ interface ParsedPayment {
   country: string | null
 }
 
+// Accepts messy header spellings from every SalsaRave export we've seen so
+// far — Eventbrite XLS ('Locator', 'Full name', 'Ticket'), goandance slim XLS
+// ('Ticket Type'), promoter CSV ('order_code', 'full_name', 'ticket_type').
+// Normalizes to canonical RawRow keys.
+function canonicalRow(raw: Record<string, unknown>): RawRow {
+  const out: RawRow = {}
+  for (const [k, v] of Object.entries(raw)) {
+    const key = k.toString().toLowerCase().replace(/[_\s]+/g, '')
+    switch (key) {
+      case 'order':
+      case 'ordercode':
+        out.Order = v as string; break
+      case 'locator':
+        out.Locator = v as number | string; break
+      case 'date':
+      case 'saledate':
+        out.Date = v as string; break
+      case 'status':
+        out.Status = v as string; break
+      case 'ticket':
+      case 'tickettype':
+        out.Ticket = v as string
+        out['Ticket Type'] = v as string
+        break
+      case 'saletype':
+        out['Sale Type'] = v as string; break
+      case 'price':
+        out.Price = v as number | string; break
+      case 'fullname':
+      case 'name':
+        out['Full name'] = v as string; break
+      case 'email':
+        out.Email = v as string; break
+      case 'phone':
+        out.Phone = v as string; break
+      case 'role':
+        out.Role = v as string; break
+      case 'country':
+        out.Country = v as string; break
+    }
+  }
+  return out
+}
+
+function readSheetRows(buf: Buffer, filename: string): Record<string, unknown>[] {
+  const isCsv = /\.csv$/i.test(filename)
+  if (isCsv) {
+    // Sniff delimiter from the first line (semicolon or comma).
+    const head = buf.slice(0, 4096).toString('utf8').split(/\r?\n/)[0] ?? ''
+    const FS = head.split(';').length > head.split(',').length ? ';' : ','
+    const wb = XLSX.read(buf, { type: 'buffer', FS, raw: true })
+    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null })
+  }
+  const wb = XLSX.read(buf, { type: 'buffer' })
+  return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null })
+}
+
 export async function importPaymentsXlsx(formData: FormData): Promise<
   | { ok: true; mode: 'full' | 'slim'; inserted: number; updated: number; skipped: number; dedupedInFile: number; totalPrice: number }
   | { ok: false; error: string }
@@ -70,11 +127,10 @@ export async function importPaymentsXlsx(formData: FormData): Promise<
   let rows: RawRow[]
   try {
     const buf = Buffer.from(await file.arrayBuffer())
-    const wb = XLSX.read(buf, { type: 'buffer' })
-    const sheet = wb.Sheets[wb.SheetNames[0]]
-    rows = XLSX.utils.sheet_to_json<RawRow>(sheet, { defval: null })
+    const raw = readSheetRows(buf, file.name)
+    rows = raw.map((r) => canonicalRow(r as Record<string, unknown>))
   } catch (err) {
-    return { ok: false, error: `Could not parse XLSX: ${(err as Error).message}` }
+    return { ok: false, error: `Could not parse file: ${(err as Error).message}` }
   }
 
   if (rows.length === 0) return { ok: false, error: 'No rows found' }
