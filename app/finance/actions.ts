@@ -61,7 +61,7 @@ interface ParsedPayment {
 }
 
 export async function importPaymentsXlsx(formData: FormData): Promise<
-  | { ok: true; mode: 'full' | 'slim'; inserted: number; updated: number; skipped: number; totalPrice: number }
+  | { ok: true; mode: 'full' | 'slim'; inserted: number; updated: number; skipped: number; dedupedInFile: number; totalPrice: number }
   | { ok: false; error: string }
 > {
   const file = formData.get('file')
@@ -136,19 +136,45 @@ async function importFull(rows: RawRow[]) {
     else inserted++
   }
   const totalPrice = parsed.reduce((a, p) => a + p.price_eur, 0)
-  return { ok: true as const, mode: 'full' as const, inserted, updated, skipped: 0, totalPrice }
+  return { ok: true as const, mode: 'full' as const, inserted, updated, skipped: 0, dedupedInFile: 0, totalPrice }
 }
 
-// Slim format: Order, Ticket Type, Full name, Role, Country.
-// Insert-only by order_code: skip any order that already exists in DB.
-// Price defaults to 135 €/row (RavePass).
+function normalizeName(s: string | null | undefined): string {
+  if (!s) return ''
+  return s
+    .toString()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Slim format: Order, [Date, Ticket Type], Full name, Role, Country.
+// Rules:
+// - Dedupe within-file by normalized full_name (keep first occurrence).
+//   Duplicates are treated as RavePass extensions — they don't count as
+//   a new paid attendee.
+// - Insert-only by order_code: any order already in DB is skipped whole.
+// - Default price 135 €/row (RavePass).
 async function importSlim(rows: RawRow[]) {
   const parsed: ParsedPayment[] = []
+  const seenNames = new Set<string>()
   const indexByOrder = new Map<string, number>()
+  let dedupedInFile = 0
+
   for (const r of rows) {
     if (!r.Order) continue
     const order = String(r.Order).trim()
     if (!order) continue
+
+    const nameKey = normalizeName(r['Full name'])
+    if (nameKey && seenNames.has(nameKey)) {
+      dedupedInFile++
+      continue
+    }
+    if (nameKey) seenNames.add(nameKey)
+
     const ticket = (r['Ticket Type'] ?? r.Ticket ?? 'RAVEPASS').toString().trim()
     const attendee_index = (indexByOrder.get(order) ?? 0) + 1
     indexByOrder.set(order, attendee_index)
@@ -156,7 +182,7 @@ async function importSlim(rows: RawRow[]) {
       locator: syntheticLocator(order),
       attendee_index,
       order_code: order,
-      sale_date: null,
+      sale_date: parseSaleDate(r.Date),
       status: null,
       ticket,
       sale_type: 'manual',
@@ -174,15 +200,28 @@ async function importSlim(rows: RawRow[]) {
 
   const { data: existing, error: existingErr } = await supabase
     .from('payments')
-    .select('order_code')
+    .select('order_code, full_name')
   if (existingErr) return { ok: false as const, error: existingErr.message }
   const existingOrders = new Set((existing ?? []).map((p) => String(p.order_code)))
+  const existingNames = new Set(
+    (existing ?? [])
+      .map((p) => normalizeName(p.full_name as string | null))
+      .filter(Boolean),
+  )
 
-  const toInsert = parsed.filter((p) => !existingOrders.has(p.order_code))
-  const skipped = parsed.length - toInsert.length
+  const toInsert: ParsedPayment[] = []
+  let skipped = 0
+  for (const p of parsed) {
+    const nameKey = normalizeName(p.full_name)
+    if (existingOrders.has(p.order_code) || (nameKey && existingNames.has(nameKey))) {
+      skipped++
+      continue
+    }
+    toInsert.push(p)
+  }
 
   if (toInsert.length === 0) {
-    return { ok: true as const, mode: 'slim' as const, inserted: 0, updated: 0, skipped, totalPrice: 0 }
+    return { ok: true as const, mode: 'slim' as const, inserted: 0, updated: 0, skipped, dedupedInFile, totalPrice: 0 }
   }
 
   const { error: insertErr } = await supabase.from('payments').insert(toInsert)
@@ -195,6 +234,7 @@ async function importSlim(rows: RawRow[]) {
     inserted: toInsert.length,
     updated: 0,
     skipped,
+    dedupedInFile,
     totalPrice,
   }
 }

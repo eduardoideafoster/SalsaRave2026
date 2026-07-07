@@ -175,6 +175,7 @@ export default function FinancePage() {
           inserted: res.inserted,
           updated: res.updated,
           skipped: res.skipped,
+          dedupedInFile: res.dedupedInFile,
           amount: fmt(res.totalPrice),
         }),
       )
