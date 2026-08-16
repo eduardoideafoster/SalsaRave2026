@@ -32,6 +32,10 @@ export interface Room {
   room_type: 'single' | 'double' | 'triple' | 'quadruple'
   capacity: number
   available_from: string  // Date when room becomes available
+  // Room-level stay. Normally the earliest check-in and latest check-out
+  // of its occupants; set by hand these override that.
+  check_in_date: string | null
+  check_out_date: string | null
   status: 'available' | 'occupied' | 'maintenance' | 'cleaning'
   is_staff: boolean
   notes: string | null

@@ -57,8 +57,8 @@ const dictionaries: Record<Lang, Dict> = {
     'hotel.H4': 'H4 (Upgraded)',
 
     // Use
-    'use.guest': 'SalsaRaver',
-    'use.staff': 'Core Tribe',
+    'use.guest': 'Guest',
+    'use.staff': 'Staff',
 
     // Status
     'status.available': 'available',
@@ -105,7 +105,7 @@ const dictionaries: Record<Lang, Dict> = {
     'filter.use': 'Use',
     'filter.allUses': 'All uses',
     'filter.guests': 'SalsaRavers',
-    'filter.staff': 'Core Tribe',
+    'filter.staff': 'Staff',
     'filter.type': 'Type',
     'filter.allTypes': 'All types',
     'filter.status': 'Status',
@@ -122,11 +122,13 @@ const dictionaries: Record<Lang, Dict> = {
     'rooms.number': 'Room #',
     'rooms.type': 'Type',
     'rooms.capacity': 'Capacity',
+    'rooms.checkIn': 'Check-in',
+    'rooms.checkOut': 'Check-out',
     'rooms.availableFrom': 'Available From',
     'rooms.occupants': 'Occupants',
     'rooms.search': 'Search rooms...',
     'rooms.notFound': 'No rooms found',
-    'rooms.staffRoom': 'Core Tribe room',
+    'rooms.staffRoom': 'Staff room',
     'rooms.autoAssign': 'Auto-assign',
     'rooms.assigning': 'Assigning...',
     'rooms.autoAssignTitle': 'Group unassigned guests by order and drop each group into an empty matching room',
@@ -137,7 +139,7 @@ const dictionaries: Record<Lang, Dict> = {
     'rooms.h4All': '50 max — All double',
     'rooms.h3Max': '230 max',
     'rooms.h3Breakdown': 'H3 Breakdown',
-    'rooms.staffTarget': '{guest} SalsaRaver · {staff} Core Tribe / 30',
+    'rooms.staffTarget': '{staff} staff rooms',
 
     // Availability tab
     'avail.event': 'Event',
@@ -334,8 +336,8 @@ const dictionaries: Record<Lang, Dict> = {
     'hotel.H4': 'H4 (Superior)',
 
     // Use
-    'use.guest': 'SalsaRaver',
-    'use.staff': 'Core Tribe',
+    'use.guest': 'Huésped',
+    'use.staff': 'Staff',
 
     // Status
     'status.available': 'disponible',
@@ -382,7 +384,7 @@ const dictionaries: Record<Lang, Dict> = {
     'filter.use': 'Uso',
     'filter.allUses': 'Todos los usos',
     'filter.guests': 'SalsaRavers',
-    'filter.staff': 'Core Tribe',
+    'filter.staff': 'Staff',
     'filter.type': 'Tipo',
     'filter.allTypes': 'Todos los tipos',
     'filter.status': 'Estado',
@@ -399,6 +401,8 @@ const dictionaries: Record<Lang, Dict> = {
     'rooms.number': 'Nº hab.',
     'rooms.type': 'Tipo',
     'rooms.capacity': 'Capacidad',
+    'rooms.checkIn': 'Entrada',
+    'rooms.checkOut': 'Salida',
     'rooms.availableFrom': 'Disponible desde',
     'rooms.occupants': 'Ocupantes',
     'rooms.search': 'Buscar habitaciones...',
@@ -414,7 +418,7 @@ const dictionaries: Record<Lang, Dict> = {
     'rooms.h4All': '50 máx — todas dobles',
     'rooms.h3Max': '230 máx',
     'rooms.h3Breakdown': 'Desglose H3',
-    'rooms.staffTarget': '{guest} huésped · {staff} staff / 30',
+    'rooms.staffTarget': '{staff} habitaciones staff',
 
     // Availability
     'avail.event': 'Evento',

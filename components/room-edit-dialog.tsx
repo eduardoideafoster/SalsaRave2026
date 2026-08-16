@@ -129,6 +129,24 @@ export function RoomEditDialog({ room, open, onOpenChange, onSaved }: Props) {
               </SelectContent>
             </Select>
           </Field>
+          <Field label="Check-in">
+            <Input
+              type="date"
+              value={form.check_in_date ?? ''}
+              onChange={(e) => setForm({ ...form, check_in_date: e.target.value || null })}
+              className="bg-secondary border-border"
+              placeholder="From the occupants"
+            />
+          </Field>
+          <Field label="Check-out">
+            <Input
+              type="date"
+              value={form.check_out_date ?? ''}
+              onChange={(e) => setForm({ ...form, check_out_date: e.target.value || null })}
+              className="bg-secondary border-border"
+              placeholder="From the occupants"
+            />
+          </Field>
           <Field label="Available from">
             <Input
               type="date"

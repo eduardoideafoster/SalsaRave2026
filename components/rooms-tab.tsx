@@ -20,6 +20,8 @@ type RoomSortKey =
   | 'room_type'
   | 'capacity'
   | 'available_from'
+  | 'check_in_date'
+  | 'check_out_date'
   | 'occupants'
   | 'status'
   | 'is_staff'
@@ -40,6 +42,33 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { Checkbox } from '@/components/ui/checkbox'
 import { format, parseISO } from 'date-fns'
+
+/**
+ * A room arrival/departure cell. Shows the occupants' dates in muted
+ * text until someone types a date here, which then takes over; clearing
+ * the field hands it back to the occupants.
+ */
+function StayCell({
+  value,
+  derived,
+  onSave,
+}: {
+  value: string | null
+  derived: string | null
+  onSave: (v: string) => void
+}) {
+  return (
+    <input
+      type="date"
+      value={value ?? derived ?? ''}
+      onChange={(e) => onSave(e.target.value)}
+      className={`h-8 w-32 rounded-md border border-border bg-secondary px-2 text-sm ${
+        value ? 'text-foreground' : 'text-muted-foreground'
+      }`}
+      title={value ? 'Set by hand — clear to follow the occupants' : "From the room's occupants"}
+    />
+  )
+}
 
 const roomTypes = ['single', 'double', 'triple', 'quadruple'] as const
 const hotels = ['H3', 'H4'] as const
@@ -135,6 +164,24 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
     occupantsByRoom.set(b.room_id, list)
   }
 
+  // Earliest arrival and latest departure among a room's occupants: a
+  // room with someone in on Thursday and someone else on Friday counts
+  // as taken from Thursday.
+  const stayByRoom = new Map<string, { in: string | null; out: string | null }>()
+  for (const b of bookings) {
+    if (b.status === 'cancelled') continue
+    const cur = stayByRoom.get(b.room_id) ?? { in: null, out: null }
+    if (b.check_in_date && (!cur.in || b.check_in_date < cur.in)) cur.in = b.check_in_date
+    if (b.check_out_date && (!cur.out || b.check_out_date > cur.out)) cur.out = b.check_out_date
+    stayByRoom.set(b.room_id, cur)
+  }
+  /** Stored override first, then what the occupants imply. */
+  const stayOf = (room: Room) => ({
+    in: room.check_in_date ?? stayByRoom.get(room.id)?.in ?? null,
+    out: room.check_out_date ?? stayByRoom.get(room.id)?.out ?? null,
+    overridden: !!(room.check_in_date || room.check_out_date),
+  })
+
   const filteredRooms = rooms.filter((room) => {
     const q = searchQuery.toLowerCase()
     const occOf = occupantsByRoom.get(room.id) ?? []
@@ -174,6 +221,10 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
       switch (sort.key) {
         case 'room_number':
           return Number(r.room_number)
+        case 'check_in_date':
+          return stayOf(r).in ?? ''
+        case 'check_out_date':
+          return stayOf(r).out ?? ''
         case 'occupants':
           return occupantsByRoom.get(r.id)?.length ?? 0
         case 'is_staff':
@@ -452,14 +503,18 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
   }
 
   const handleToggleStaff = async (room: Room, next: boolean) => {
-    // Optimistic local update, then write. Default available_from when flipping
-    // to staff: Sep 7 for H4, Sep 8 for H3 (matches event setup schedule).
+    // Marks the room as staff, nothing more. It used to also rewrite
+    // available_from, which quietly changed a date nobody asked it to.
     setRooms((rs) => rs.map((r) => (r.id === room.id ? { ...r, is_staff: next } : r)))
-    const available_from = next ? (room.hotel === 'H4' ? '2026-09-07' : '2026-09-08') : room.available_from
-    const { error } = await supabase
-      .from('rooms')
-      .update({ is_staff: next, available_from })
-      .eq('id', room.id)
+    const { error } = await supabase.from('rooms').update({ is_staff: next }).eq('id', room.id)
+    if (error) fetchRooms()
+  }
+
+  /** Persist a hand-set room arrival/departure. Empty clears the override. */
+  const saveStay = async (room: Room, field: 'check_in_date' | 'check_out_date', value: string) => {
+    const next = value || null
+    setRooms((rs) => rs.map((r) => (r.id === room.id ? { ...r, [field]: next } : r)))
+    const { error } = await supabase.from('rooms').update({ [field]: next }).eq('id', room.id)
     if (error) fetchRooms()
   }
 
@@ -499,7 +554,7 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
           <div className="text-2xl font-bold text-primary">{rooms.length}</div>
           <div className="text-sm text-muted-foreground">Total Rooms</div>
           <div className="text-xs text-muted-foreground mt-1">
-            {guestRoomCount} SalsaRaver · <span className="text-amber-400">{staffCount} Core Tribe</span> / 30
+            <span className="text-amber-400">{staffCount}</span> {t('rooms.staffRoom')}
           </div>
         </div>
       </div>
@@ -903,8 +958,8 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
                   {displayStatus}
                 </span>
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-medium ${room.is_staff ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-secondary text-muted-foreground border-border'}`}>
-                  {room.is_staff ? <Music className="size-3" /> : <Users className="size-3" />}
-                  {room.is_staff ? t('use.staff') : t('use.guest')}
+                  {room.is_staff && <Users className="size-3" />}
+                  {room.is_staff ? t('use.staff') : '—'}
                 </span>
                 <span className={`inline-flex px-2 py-0.5 rounded-md border font-medium ${
                   occ.length >= room.capacity ? 'bg-red-500/20 text-red-400 border-red-500/30'
@@ -971,10 +1026,12 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
               <SortHeader label={t('guests.hotel')} sortKey="hotel" state={sort} onSort={setSort} />
               <SortHeader label={t('rooms.type')} sortKey="room_type" state={sort} onSort={setSort} />
               <SortHeader label={t('rooms.capacity')} sortKey="capacity" state={sort} onSort={setSort} />
-              <SortHeader label={t('rooms.availableFrom')} sortKey="available_from" state={sort} onSort={setSort} />
+              <SortHeader label={t('rooms.checkIn')} sortKey="check_in_date" state={sort} onSort={setSort} />
+              <SortHeader label={t('rooms.checkOut')} sortKey="check_out_date" state={sort} onSort={setSort} />
               <SortHeader label={t('rooms.occupants')} sortKey="occupants" state={sort} onSort={setSort} />
               <SortHeader label={t('filter.status')} sortKey="status" state={sort} onSort={setSort} />
               <SortHeader label={t('filter.use')} sortKey="is_staff" state={sort} onSort={setSort} />
+              <th className="border-l border-border"><SortHeader label={t('rooms.availableFrom')} sortKey="available_from" state={sort} onSort={setSort} /></th>
               <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('common.actions')}</th>
             </tr>
           </thead>
@@ -1040,8 +1097,16 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
                     <td className="px-4 py-3">
                       <Input
                         type="date"
-                        value={editForm.available_from || ''}
-                        onChange={(e) => setEditForm({ ...editForm, available_from: e.target.value })}
+                        value={editForm.check_in_date ?? stayOf(room).in ?? ''}
+                        onChange={(e) => setEditForm({ ...editForm, check_in_date: e.target.value || null })}
+                        className="h-8 w-32 text-sm bg-secondary border-border"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Input
+                        type="date"
+                        value={editForm.check_out_date ?? stayOf(room).out ?? ''}
+                        onChange={(e) => setEditForm({ ...editForm, check_out_date: e.target.value || null })}
                         className="h-8 w-32 text-sm bg-secondary border-border"
                       />
                     </td>
@@ -1073,9 +1138,17 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
                           aria-label="Staff room"
                         />
                         <span className={editForm.is_staff ? 'text-amber-400' : 'text-muted-foreground'}>
-                          {editForm.is_staff ? t('use.staff') : t('use.guest')}
+                          {editForm.is_staff ? t('use.staff') : '—'}
                         </span>
                       </label>
+                    </td>
+                    <td className="px-4 py-3 border-l border-border">
+                      <Input
+                        type="date"
+                        value={editForm.available_from || ''}
+                        onChange={(e) => setEditForm({ ...editForm, available_from: e.target.value })}
+                        className="h-8 w-32 text-sm bg-secondary border-border"
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -1130,8 +1203,19 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{room.capacity}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {format(parseISO(room.available_from), 'MMM d')}
+                    <td className="px-4 py-3">
+                      <StayCell
+                        value={room.check_in_date}
+                        derived={stayOf(room).in}
+                        onSave={(v) => saveStay(room, 'check_in_date', v)}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <StayCell
+                        value={room.check_out_date}
+                        derived={stayOf(room).out}
+                        onSave={(v) => saveStay(room, 'check_out_date', v)}
+                      />
                     </td>
                     <td className="px-4 py-3 text-xs">
                       {(() => {
@@ -1186,10 +1270,13 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
                           aria-label="Staff room"
                         />
                         <span className={`inline-flex items-center gap-1 ${room.is_staff ? 'text-amber-400' : 'text-muted-foreground'}`}>
-                          {room.is_staff ? <Music className="size-3" /> : <Users className="size-3" />}
-                          {room.is_staff ? t('use.staff') : t('use.guest')}
+                          {room.is_staff && <Users className="size-3" />}
+                          {room.is_staff ? t('use.staff') : '—'}
                         </span>
                       </label>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground border-l border-border">
+                      {format(parseISO(room.available_from), 'MMM d')}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -1217,7 +1304,7 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
             ))}
             {sortedRooms.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">
                   No rooms found
                 </td>
               </tr>
