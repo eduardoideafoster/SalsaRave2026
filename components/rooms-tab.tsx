@@ -25,6 +25,7 @@ type RoomSortKey =
   | 'occupants'
   | 'status'
   | 'is_staff'
+  | 'requested'
 import {
   Dialog,
   DialogContent,
@@ -125,6 +126,7 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
     available_from: '2026-09-07',
     status: 'available' as Room['status'],
     is_staff: false,
+    requested: false,
   })
 
   const [guests, setGuests] = useState<Guest[]>([])
@@ -229,6 +231,8 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
           return occupantsByRoom.get(r.id)?.length ?? 0
         case 'is_staff':
           return r.is_staff ? 1 : 0
+        case 'requested':
+          return r.requested ? 1 : 0
         case 'status':
           // Derived display status (occupied if any occupants, unless manually set)
           const occ = occupantsByRoom.get(r.id)?.length ?? 0
@@ -411,6 +415,7 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
   const handleExportRoomingCSV = () => {
     const headers = [
       'room_number',
+      'habitacion_solicitada',
       'hotel',
       'room_type',
       'guest_name',
@@ -443,14 +448,18 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
       // or the date set by hand on the room.
       const roomFirst = stayOf(room).in ?? ''
       const staff = room.is_staff ? 'yes' : 'no'
+      // Marked rooms say so in the cell; the rest stay blank so the
+      // column can be filtered at a glance in Excel.
+      const requested = room.requested ? 'Habitación solicitada' : ''
       if (occ.length === 0) {
-        rows.push([room.room_number, room.hotel, room.room_type, '(EMPTY)', staff, roomFirst, '', '', String(room.capacity), '', '', '', ''])
+        rows.push([room.room_number, requested, room.hotel, room.room_type, '(EMPTY)', staff, roomFirst, '', '', String(room.capacity), '', '', '', ''])
         continue
       }
       for (const g of occ) {
         const stay = stayOfBooking.get(`${room.id}|${g.id}`)
         rows.push([
           room.room_number,
+          requested,
           room.hotel,
           room.room_type,
           g.full_name,
@@ -471,9 +480,10 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
 
   // CSV export — rooms inventory only
   const handleExportRoomsCSV = () => {
-    const headers = ['room_number', 'hotel', 'room_type', 'capacity', 'available_from', 'status', 'is_staff', 'notes']
+    const headers = ['room_number', 'habitacion_solicitada', 'hotel', 'room_type', 'capacity', 'available_from', 'status', 'is_staff', 'notes']
     const rows = sortedRooms.map((r) => [
       r.room_number,
+      r.requested ? 'Habitación solicitada' : '',
       r.hotel,
       r.room_type,
       String(r.capacity),
@@ -553,6 +563,12 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
     // available_from, which quietly changed a date nobody asked it to.
     setRooms((rs) => rs.map((r) => (r.id === room.id ? { ...r, is_staff: next } : r)))
     const { error } = await supabase.from('rooms').update({ is_staff: next }).eq('id', room.id)
+    if (error) fetchRooms()
+  }
+
+  const handleToggleRequested = async (room: Room, next: boolean) => {
+    setRooms((rs) => rs.map((r) => (r.id === room.id ? { ...r, requested: next } : r)))
+    const { error } = await supabase.from('rooms').update({ requested: next }).eq('id', room.id)
     if (error) fetchRooms()
   }
 
@@ -1075,6 +1091,7 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
                 />
               </th>
               <SortHeader label={t('rooms.number')} sortKey="room_number" state={sort} onSort={setSort} />
+              <SortHeader label={t('rooms.requested')} sortKey="requested" state={sort} onSort={setSort} />
               <SortHeader label={t('guests.hotel')} sortKey="hotel" state={sort} onSort={setSort} />
               <SortHeader label={t('rooms.type')} sortKey="room_type" state={sort} onSort={setSort} />
               <SortHeader label={t('rooms.capacity')} sortKey="capacity" state={sort} onSort={setSort} />
@@ -1104,6 +1121,13 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
                         value={editForm.room_number || ''}
                         onChange={(e) => setEditForm({ ...editForm, room_number: e.target.value })}
                         className="h-8 w-24 text-sm bg-secondary border-border"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Checkbox
+                        checked={!!editForm.requested}
+                        onCheckedChange={(v) => setEditForm({ ...editForm, requested: v === true })}
+                        aria-label="Requested room"
                       />
                     </td>
                     <td className="px-4 py-3">
@@ -1245,6 +1269,13 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
                       </button>
                     </td>
                     <td className="px-4 py-3">
+                      <Checkbox
+                        checked={room.requested}
+                        onCheckedChange={(v) => handleToggleRequested(room, v === true)}
+                        aria-label={`Requested room ${room.room_number}`}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${hotelColors[room.hotel]}`}>
                         {room.hotel}
                       </span>
@@ -1358,7 +1389,7 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
             ))}
             {sortedRooms.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={13} className="px-4 py-8 text-center text-muted-foreground">
                   No rooms found
                 </td>
               </tr>

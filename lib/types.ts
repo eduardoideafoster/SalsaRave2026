@@ -38,6 +38,8 @@ export interface Room {
   check_out_date: string | null
   status: 'available' | 'occupied' | 'maintenance' | 'cleaning'
   is_staff: boolean
+  // Room the guest asked for by name.
+  requested: boolean
   notes: string | null
   created_at: string
   updated_at: string

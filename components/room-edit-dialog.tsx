@@ -129,6 +129,19 @@ export function RoomEditDialog({ room, open, onOpenChange, onSaved }: Props) {
               </SelectContent>
             </Select>
           </Field>
+          <Field label="Requested room">
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={!!form.requested}
+                onChange={(e) => setForm({ ...form, requested: e.target.checked })}
+                className="size-4 accent-primary"
+              />
+              <span className={form.requested ? 'text-foreground' : 'text-muted-foreground'}>
+                {form.requested ? 'Habitación solicitada' : '—'}
+              </span>
+            </label>
+          </Field>
           <Field label="Check-in">
             <Input
               type="date"
