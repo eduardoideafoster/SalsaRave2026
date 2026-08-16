@@ -142,6 +142,9 @@ const dictionaries: Record<Lang, Dict> = {
     'rooms.staffTarget': '{staff} staff rooms',
 
     // Availability tab
+    'avail.checkInsTitle': 'Rooms checking in each day',
+    'avail.day': 'Day',
+    'common.total': 'Total',
     'avail.event': 'Event',
     'avail.daily': 'Daily Availability Overview',
     'avail.dailyHint': 'click a row for details',
@@ -421,6 +424,9 @@ const dictionaries: Record<Lang, Dict> = {
     'rooms.staffTarget': '{staff} habitaciones staff',
 
     // Availability
+    'avail.checkInsTitle': 'Habitaciones que entran cada día',
+    'avail.day': 'Día',
+    'common.total': 'Total',
     'avail.event': 'Evento',
     'avail.daily': 'Disponibilidad diaria',
     'avail.dailyHint': 'pulsa una fila para ver detalles',

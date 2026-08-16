@@ -43,6 +43,7 @@ interface AvailabilityByDate {
 }
 
 export function AvailabilityTab() {
+  const t = useT()
   const [rooms, setRooms] = useState<Room[]>([])
   const [bookings, setBookings] = useState<BookingWithDetails[]>([])
   const [guests, setGuests] = useState<Guest[]>([])
@@ -221,6 +222,30 @@ export function AvailabilityTab() {
     })
   }, [days, rooms, bookings, guests, hotelFilter])
 
+  // Rooms whose stay starts on each day, by hotel — how many keys
+  // reception hands out that morning. A room counts on its earliest
+  // occupant's arrival, or on the date set by hand on the room.
+  const checkInsByDay = useMemo(() => {
+    const firstByRoom = new Map<string, string>()
+    for (const b of bookings) {
+      if (b.status === 'cancelled' || !b.check_in_date) continue
+      const cur = firstByRoom.get(b.room_id)
+      if (!cur || b.check_in_date < cur) firstByRoom.set(b.room_id, b.check_in_date)
+    }
+    const rows = new Map<string, { h3: number; h4: number }>()
+    for (const r of rooms) {
+      const day = r.check_in_date ?? firstByRoom.get(r.id)
+      if (!day) continue
+      const cur = rows.get(day) ?? { h3: 0, h4: 0 }
+      if (r.hotel === 'H3') cur.h3 += 1
+      else cur.h4 += 1
+      rows.set(day, cur)
+    }
+    return [...rows.entries()]
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .map(([date, v]) => ({ date, ...v, total: v.h3 + v.h4 }))
+  }, [rooms, bookings])
+
   // Room type breakdown (guest rooms only)
   const h3Breakdown = useMemo(() => {
     const h3 = guestRooms.filter(r => r.hotel === 'H3')
@@ -316,6 +341,51 @@ export function AvailabilityTab() {
           <div className="mt-3 text-xs text-muted-foreground">
             All rooms are double rooms that can be used as single
           </div>
+        </div>
+      </div>
+
+      {/* Rooms checking in each day */}
+      <div className="bg-card rounded-lg border border-border p-4">
+        <h3 className="font-semibold text-foreground mb-3 text-sm sm:text-base">
+          {t('avail.checkInsTitle')}
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="text-left font-semibold py-2 pr-4">{t('avail.day')}</th>
+                <th className="text-right font-semibold py-2 px-4">H3</th>
+                <th className="text-right font-semibold py-2 px-4">H4</th>
+                <th className="text-right font-semibold py-2 pl-4">{t('common.total')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {checkInsByDay.map((row) => (
+                <tr key={row.date}>
+                  <td className="py-2 pr-4 text-foreground">
+                    {format(parseISO(row.date), 'EEE d MMM')}
+                  </td>
+                  <td className="py-2 px-4 text-right text-slate-300">{row.h3}</td>
+                  <td className="py-2 px-4 text-right text-amber-400">{row.h4}</td>
+                  <td className="py-2 pl-4 text-right font-semibold text-foreground">{row.total}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-border">
+                <td className="py-2 pr-4 text-muted-foreground">{t('common.total')}</td>
+                <td className="py-2 px-4 text-right text-slate-300">
+                  {checkInsByDay.reduce((n, r) => n + r.h3, 0)}
+                </td>
+                <td className="py-2 px-4 text-right text-amber-400">
+                  {checkInsByDay.reduce((n, r) => n + r.h4, 0)}
+                </td>
+                <td className="py-2 pl-4 text-right font-semibold text-foreground">
+                  {checkInsByDay.reduce((n, r) => n + r.total, 0)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
 
