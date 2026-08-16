@@ -405,19 +405,65 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
     )
   }
 
-  // CSV export — full rooming list (one row per booked guest)
+  // CSV export — full rooming list, one row per booked guest.
+  // Dates come from each guest's booking, not from the guest record:
+  // the booking is what actually says when that person is in that room.
   const handleExportRoomingCSV = () => {
-    const headers = ['room_number', 'hotel', 'room_type', 'capacity', 'guest_name', 'order_code', 'role', 'country', 'ticket_type', 'check_in', 'check_out']
+    const headers = [
+      'room_number',
+      'hotel',
+      'room_type',
+      'guest_name',
+      'is_staff',
+      'room_first_check_in',
+      'guest_check_in',
+      'guest_check_out',
+      'capacity',
+      'order_code',
+      'role',
+      'country',
+      'ticket_type',
+    ]
+
+    // room_id|guest_id -> that guest's stay in that room
+    const stayOfBooking = new Map<string, { in: string | null; out: string | null }>()
+    for (const b of bookings) {
+      if (b.status === 'cancelled') continue
+      stayOfBooking.set(`${b.room_id}|${b.guest_id}`, {
+        in: b.check_in_date ?? null,
+        out: b.check_out_date ?? null,
+      })
+    }
+
     const rows: string[][] = []
     const sortedByRoom = [...rooms].sort((a, b) => Number(a.room_number) - Number(b.room_number))
     for (const room of sortedByRoom) {
       const occ = occupantsByRoom.get(room.id) ?? []
+      // The room's own arrival: the first of its occupants to walk in,
+      // or the date set by hand on the room.
+      const roomFirst = stayOf(room).in ?? ''
+      const staff = room.is_staff ? 'yes' : 'no'
       if (occ.length === 0) {
-        rows.push([room.room_number, room.hotel, room.room_type, String(room.capacity), room.is_staff ? '(STAFF ROOM)' : '(EMPTY)', '', '', '', '', '', ''])
+        rows.push([room.room_number, room.hotel, room.room_type, '(EMPTY)', staff, roomFirst, '', '', String(room.capacity), '', '', '', ''])
         continue
       }
       for (const g of occ) {
-        rows.push([room.room_number, room.hotel, room.room_type, String(room.capacity), g.full_name, g.order_code, g.role, g.country ?? '', g.ticket_type, g.check_in_date ?? '', g.check_out_date ?? ''])
+        const stay = stayOfBooking.get(`${room.id}|${g.id}`)
+        rows.push([
+          room.room_number,
+          room.hotel,
+          room.room_type,
+          g.full_name,
+          staff,
+          roomFirst,
+          stay?.in ?? g.check_in_date ?? '',
+          stay?.out ?? g.check_out_date ?? '',
+          String(room.capacity),
+          g.order_code,
+          g.role,
+          g.country ?? '',
+          g.ticket_type,
+        ])
       }
     }
     downloadCSV(generateCSV(headers, rows), `salsarave-2026-rooming-list-${new Date().toISOString().slice(0, 10)}.csv`)
@@ -642,11 +688,17 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-56 bg-card border-border p-2" align="end">
-              <Button variant="ghost" className="w-full justify-start text-sm" onClick={handleExportRoomsCSV}>
-                Rooms inventory
+              <Button variant="ghost" className="w-full justify-start text-sm h-auto py-2" onClick={handleExportRoomsCSV}>
+                <span className="flex flex-col items-start">
+                  <span>Rooms inventory</span>
+                  <span className="text-xs text-muted-foreground">One row per room · no guest names</span>
+                </span>
               </Button>
-              <Button variant="ghost" className="w-full justify-start text-sm" onClick={handleExportRoomingCSV}>
-                Rooming list (with guests)
+              <Button variant="ghost" className="w-full justify-start text-sm h-auto py-2" onClick={handleExportRoomingCSV}>
+                <span className="flex flex-col items-start">
+                  <span>Rooming list (with guests)</span>
+                  <span className="text-xs text-muted-foreground">One row per guest · names and dates</span>
+                </span>
               </Button>
             </PopoverContent>
           </Popover>
