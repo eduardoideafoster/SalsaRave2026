@@ -84,6 +84,8 @@ export function RoomEditDialog({ room, open, onOpenChange, onSaved }: Props) {
               <SelectContent className="bg-card border-border">
                 <SelectItem value="single">single</SelectItem>
                 <SelectItem value="double">double</SelectItem>
+                <SelectItem value="twin">twin</SelectItem>
+                <SelectItem value="matrimonial">matrimonial</SelectItem>
                 <SelectItem value="triple">triple</SelectItem>
                 <SelectItem value="quadruple">quadruple</SelectItem>
               </SelectContent>

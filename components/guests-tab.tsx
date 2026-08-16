@@ -43,6 +43,8 @@ const roomTypeLabels: Record<string, string> = {
   single: 'Single',
   double: 'Double',
   triple: 'Triple',
+  twin: 'Twin',
+  matrimonial: 'Matrimonial',
   quadruple: 'Quadruple',
 }
 import {
@@ -611,6 +613,8 @@ export function GuestsTab({ openGuestId, onOpenGuestHandled, onOpenGuest }: Gues
             <SelectItem value="single">{t('type.single')}</SelectItem>
             <SelectItem value="double">{t('type.double')}</SelectItem>
             <SelectItem value="triple">{t('type.triple')}</SelectItem>
+            <SelectItem value="twin">{t('type.twin')}</SelectItem>
+            <SelectItem value="matrimonial">{t('type.matrimonial')}</SelectItem>
             <SelectItem value="quadruple">{t('type.quadruple')}</SelectItem>
             <SelectItem value="unassigned">{t('common.unassigned')}</SelectItem>
           </SelectContent>

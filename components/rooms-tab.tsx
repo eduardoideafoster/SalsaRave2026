@@ -71,7 +71,7 @@ function StayCell({
   )
 }
 
-const roomTypes = ['single', 'double', 'triple', 'quadruple'] as const
+const roomTypes = ['single', 'double', 'twin', 'matrimonial', 'triple', 'quadruple'] as const
 const hotels = ['H3', 'H4'] as const
 const statusOptions = ['available', 'occupied', 'maintenance', 'cleaning'] as const
 
@@ -86,6 +86,8 @@ const typeColors: Record<string, string> = {
   single: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
   double: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
   triple: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  twin: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
+  matrimonial: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30',
   quadruple: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
 }
 
@@ -98,6 +100,8 @@ const typeLabels: Record<string, string> = {
   single: 'Single',
   double: 'Double',
   triple: 'Triple',
+  twin: 'Twin',
+  matrimonial: 'Matrimonial',
   quadruple: 'Quadruple',
 }
 
@@ -268,6 +272,7 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
         available_from: '2026-09-07',
         status: 'available',
         is_staff: false,
+              requested: false,
       })
     }
   }

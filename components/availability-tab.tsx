@@ -527,9 +527,14 @@ export function AvailabilityTab() {
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-foreground">{room.room_number}</span>
                       <span className="text-xs text-muted-foreground">
-                        {room.hotel} — {room.room_type === 'triple' ? 'Triple' :
-                          room.room_type === 'quadruple' ? 'Quad' :
-                          room.room_type === 'single' ? 'Single' : 'Double'}
+                        {room.hotel} — {({
+                          triple: 'Triple',
+                          quadruple: 'Quad',
+                          single: 'Single',
+                          twin: 'Twin',
+                          matrimonial: 'Matrimonial',
+                          double: 'Double',
+                        } as Record<string, string>)[room.room_type] ?? room.room_type}
                       </span>
                     </div>
                   </td>

@@ -50,6 +50,8 @@ const dictionaries: Record<Lang, Dict> = {
     'type.single': 'Single',
     'type.double': 'Double',
     'type.triple': 'Triple',
+    'type.twin': 'Twin',
+    'type.matrimonial': 'Matrimonial',
     'type.quadruple': 'Quadruple',
 
     // Hotels
@@ -333,6 +335,8 @@ const dictionaries: Record<Lang, Dict> = {
     'type.single': 'Individual',
     'type.double': 'Doble',
     'type.triple': 'Triple',
+    'type.twin': 'Twin',
+    'type.matrimonial': 'Matrimonial',
     'type.quadruple': 'Cuádruple',
 
     // Hotels

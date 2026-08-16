@@ -29,7 +29,7 @@ export interface Room {
   id: string
   room_number: string
   hotel: 'H3' | 'H4'
-  room_type: 'single' | 'double' | 'triple' | 'quadruple'
+  room_type: 'single' | 'double' | 'twin' | 'matrimonial' | 'triple' | 'quadruple'
   capacity: number
   available_from: string  // Date when room becomes available
   // Room-level stay. Normally the earliest check-in and latest check-out

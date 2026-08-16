@@ -3,7 +3,8 @@
 //   H3 double  57 €/pp/night
 //   H4 single 102 €/pp/night
 //   H4 double  77 €/pp/night
-// Triples/quadruples use the "double" rate; the 3rd and 4th occupants per
+// Everything that is not a single — double, twin, matrimonial, triple,
+// quadruple — uses the "double" rate; the 3rd and 4th occupants per
 // night get a 15% discount.
 // Guests without a room booking (RavePass only) contribute zero.
 
@@ -23,7 +24,7 @@ export interface BookingForCost {
 export interface RoomForCost {
   id: string
   hotel: 'H3' | 'H4'
-  room_type: 'single' | 'double' | 'triple' | 'quadruple'
+  room_type: 'single' | 'double' | 'twin' | 'matrimonial' | 'triple' | 'quadruple'
 }
 
 export interface CostBreakdown {
@@ -84,7 +85,7 @@ export function computeHotelCost(
   const breakdown: CostBreakdown = {
     total: 0,
     byHotel: { H3: 0, H4: 0 },
-    byRoomType: { single: 0, double: 0, triple: 0, quadruple: 0 },
+    byRoomType: { single: 0, double: 0, twin: 0, matrimonial: 0, triple: 0, quadruple: 0 },
     nights: nightsSet.size,
   }
 

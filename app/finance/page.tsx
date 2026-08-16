@@ -44,7 +44,7 @@ interface BookingRow {
 interface RoomRow {
   id: string
   hotel: 'H3' | 'H4'
-  room_type: 'single' | 'double' | 'triple' | 'quadruple'
+  room_type: 'single' | 'double' | 'twin' | 'matrimonial' | 'triple' | 'quadruple'
 }
 
 const CATEGORIES_INCOME = ['Tickets', 'Sponsorship', 'Other income']
