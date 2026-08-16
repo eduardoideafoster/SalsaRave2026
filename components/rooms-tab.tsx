@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Room, Guest, Booking } from '@/lib/types'
+import { Room, Guest, Booking, allowedRoomTypes, SELECTABLE_ROOM_TYPES } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Search, Pencil, Trash2, X, Check, Users, Music, Wand2, Download, Upload } from 'lucide-react'
@@ -71,7 +71,7 @@ function StayCell({
   )
 }
 
-const roomTypes = ['single', 'double', 'twin', 'matrimonial', 'triple', 'quadruple'] as const
+const roomTypes = SELECTABLE_ROOM_TYPES
 const hotels = ['H3', 'H4'] as const
 const statusOptions = ['available', 'occupied', 'maintenance', 'cleaning'] as const
 
@@ -260,6 +260,12 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
 
   const handleAddRoom = async () => {
     if (!newRoom.room_number) return
+    if (!allowedRoomTypes(newRoom.hotel, newRoom.room_number).includes(newRoom.room_type)) {
+      alert(
+        `${newRoom.hotel} ${newRoom.room_number} has a single bed: it can only be single or matrimonial, not ${newRoom.room_type}.`,
+      )
+      return
+    }
     const { error } = await supabase.from('rooms').insert([newRoom])
     if (!error) {
       fetchRooms()
@@ -267,7 +273,7 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
       setNewRoom({
         room_number: '',
         hotel: 'H3',
-        room_type: 'double',
+        room_type: 'twin',
         capacity: 2,
         available_from: '2026-09-07',
         status: 'available',
@@ -278,6 +284,16 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
   }
 
   const handleUpdateRoom = async (id: string) => {
+    const room = rooms.find((r) => r.id === id)
+    const hotel = editForm.hotel ?? room?.hotel ?? 'H3'
+    const number = editForm.room_number ?? room?.room_number ?? ''
+    const type = editForm.room_type ?? room?.room_type
+    if (type && !allowedRoomTypes(hotel, number).includes(type) && type !== room?.room_type) {
+      alert(
+        `${hotel} ${number} has a single bed: it can only be single or matrimonial, not ${type}.`,
+      )
+      return
+    }
     const { error } = await supabase.from('rooms').update(editForm).eq('id', id)
     if (!error) {
       fetchRooms()
@@ -1159,9 +1175,14 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-card border-border">
-                          {roomTypes.map((type) => (
+                          {Array.from(
+                            new Set([
+                              ...allowedRoomTypes(editForm.hotel ?? room.hotel, editForm.room_number ?? room.room_number),
+                              ...(room.room_type ? [room.room_type] : []),
+                            ]),
+                          ).map((type) => (
                             <SelectItem key={type} value={type}>
-                              {typeLabels[type]}
+                              {typeLabels[type] ?? type}
                             </SelectItem>
                           ))}
                         </SelectContent>

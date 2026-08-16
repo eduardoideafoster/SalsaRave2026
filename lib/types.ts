@@ -25,6 +25,29 @@ export const TRIBES = [
 ] as const
 export type Tribe = (typeof TRIBES)[number]
 
+export type RoomType = 'single' | 'double' | 'twin' | 'matrimonial' | 'triple' | 'quadruple'
+
+/**
+ * Types offered when creating or editing a room. 'double' is retired:
+ * rooms are described as twin or matrimonial now. Rooms already stored
+ * as double keep showing it until they are reclassified.
+ */
+export const SELECTABLE_ROOM_TYPES: RoomType[] = ['single', 'twin', 'matrimonial', 'triple', 'quadruple']
+
+/** H4 rooms with a single bed: they cannot be twin. */
+export const H4_SINGLE_BED_ROOMS = new Set([
+  '10', '11', '18', '19', '20', '21', '28', '29', '30', '31',
+  '38', '39', '40', '41', '48', '49', '50', '59',
+])
+
+/** What a given room is allowed to be. */
+export function allowedRoomTypes(hotel: 'H3' | 'H4', roomNumber: string): RoomType[] {
+  if (hotel === 'H4' && H4_SINGLE_BED_ROOMS.has(String(roomNumber).trim())) {
+    return ['single', 'matrimonial']
+  }
+  return SELECTABLE_ROOM_TYPES
+}
+
 export interface Room {
   id: string
   room_number: string

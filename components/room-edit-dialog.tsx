@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Room } from '@/lib/types'
+import { Room, allowedRoomTypes } from '@/lib/types'
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,14 @@ export function RoomEditDialog({ room, open, onOpenChange, onSaved }: Props) {
   if (!room) return null
 
   const save = async () => {
+    const hotel = form.hotel ?? room.hotel
+    const number = form.room_number ?? room.room_number
+    const type = form.room_type ?? room.room_type
+    // A single-bed room cannot be a twin, whichever screen asked for it.
+    if (!allowedRoomTypes(hotel, number).includes(type) && type !== room.room_type) {
+      alert(`${hotel} ${number} has a single bed: it can only be single or matrimonial, not ${type}.`)
+      return
+    }
     setBusy(true)
     const { error } = await supabase.from('rooms').update(form).eq('id', room.id)
     if (!error) {
@@ -82,12 +90,14 @@ export function RoomEditDialog({ room, open, onOpenChange, onSaved }: Props) {
             >
               <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
               <SelectContent className="bg-card border-border">
-                <SelectItem value="single">single</SelectItem>
-                <SelectItem value="double">double</SelectItem>
-                <SelectItem value="twin">twin</SelectItem>
-                <SelectItem value="matrimonial">matrimonial</SelectItem>
-                <SelectItem value="triple">triple</SelectItem>
-                <SelectItem value="quadruple">quadruple</SelectItem>
+                {Array.from(
+                  new Set([
+                    ...allowedRoomTypes(form.hotel ?? room.hotel, form.room_number ?? room.room_number),
+                    ...(form.room_type ? [form.room_type] : []),
+                  ]),
+                ).map((tp) => (
+                  <SelectItem key={tp} value={tp}>{tp}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </Field>
