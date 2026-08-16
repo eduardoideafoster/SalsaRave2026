@@ -1225,7 +1225,9 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
                         const full = occ.length >= room.capacity
                         return (
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-foreground truncate max-w-[220px]" title={names}>
+                            {/* Full names, wrapped: a cut-off "amandine Sohier
+                                Faure, …" hid who the second occupant was. */}
+                            <span className="text-foreground whitespace-normal break-words" title={names}>
                               {occ.map((g, i) => (
                                 <span key={g.id}>
                                   {i > 0 && ', '}
