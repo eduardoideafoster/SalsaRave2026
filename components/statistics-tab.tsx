@@ -145,7 +145,33 @@ export function StatisticsTab() {
       else if (count >= 3) tripleRooms++
     })
     
-    const guestsInSharedRooms = guests.length - singleRooms
+    // Guests inside orders of two or more. The old line subtracted a
+    // count of orders from a count of guests — it happened to land on
+    // the right number, but it was mixing units.
+    let guestsInMultiPersonOrders = 0
+    orderCounts.forEach((count) => {
+      if (count >= 2) guestsInMultiPersonOrders += count
+    })
+
+    // What the room panel actually promised: occupancy of real rooms,
+    // which is a different population — 284 guests hold no room at all.
+    const occupancy = new Map<string, number>()
+    for (const b of bookings) {
+      if (b.status === 'cancelled') continue
+      occupancy.set(b.room_id, (occupancy.get(b.room_id) ?? 0) + 1)
+    }
+    let rooms1 = 0, rooms2 = 0, rooms3plus = 0, guestsSharing = 0, guestsWithRoom = 0
+    occupancy.forEach((n) => {
+      guestsWithRoom += n
+      if (n === 1) rooms1 += 1
+      else {
+        if (n === 2) rooms2 += 1
+        else rooms3plus += 1
+        guestsSharing += n
+      }
+    })
+    const roomsInUse = occupancy.size
+    const guestsWithoutRoom = guests.length - guestsWithRoom
 
     // Room occupancy: a room is "booked" if any active booking points at it.
     const bookedRoomIds = new Set(
@@ -199,7 +225,13 @@ export function StatisticsTab() {
       singleRooms,
       doubleRooms,
       tripleRooms,
-      guestsInSharedRooms,
+      guestsInMultiPersonOrders,
+      roomsInUse,
+      rooms1,
+      rooms2,
+      rooms3plus,
+      guestsSharing,
+      guestsWithoutRoom,
       guestRoomsTotal: guestRooms.length,
       guestRoomsBooked,
       guestRoomsRemaining,
@@ -369,36 +401,69 @@ export function StatisticsTab() {
         </div>
       </div>
 
-      {/* Room Sharing Stats */}
+      {/* Real room occupancy — one row per actual room */}
       <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
-        <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Room Sharing Statistics</h3>
+        <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1">Room occupancy</h3>
+        <p className="text-xs text-muted-foreground mb-3 sm:mb-4">
+          Counted over rooms actually assigned, not over orders.
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-6">
           <div className="text-center">
-            <p className="text-2xl sm:text-4xl font-bold text-foreground"><CountUp value={stats.uniqueOrders} /></p>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Total Orders</p>
+            <p className="text-2xl sm:text-4xl font-bold text-foreground"><CountUp value={stats.roomsInUse} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Rooms in use</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl sm:text-4xl font-bold text-blue-400"><CountUp value={stats.singleRooms} /></p>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Single Bookings</p>
-            <p className="text-xs text-muted-foreground hidden sm:block">(1 person/order)</p>
+            <p className="text-2xl sm:text-4xl font-bold text-sky-300"><CountUp value={stats.rooms1} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">With 1 guest</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl sm:text-4xl font-bold text-cyan-400"><CountUp value={stats.doubleRooms} /></p>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Double Bookings</p>
-            <p className="text-xs text-muted-foreground hidden sm:block">(2 people/order)</p>
+            <p className="text-2xl sm:text-4xl font-bold text-teal-300"><CountUp value={stats.rooms2} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">With 2 guests</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl sm:text-4xl font-bold text-emerald-400"><CountUp value={stats.tripleRooms} /></p>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Triple Bookings</p>
-            <p className="text-xs text-muted-foreground hidden sm:block">(3+ people/order)</p>
+            <p className="text-2xl sm:text-4xl font-bold text-amber-300"><CountUp value={stats.rooms3plus} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">With 3+ guests</p>
           </div>
           <div className="text-center col-span-2 md:col-span-1">
-            <p className="text-2xl sm:text-4xl font-bold text-primary"><CountUp value={stats.guestsInSharedRooms} /></p>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Sharing Rooms</p>
-            <p className="text-xs text-muted-foreground hidden sm:block">(guests in shared)</p>
+            <p className="text-2xl sm:text-4xl font-bold text-primary"><CountUp value={stats.guestsSharing} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Guests sharing</p>
+            <p className="text-xs text-muted-foreground hidden sm:block">(in rooms of 2+)</p>
           </div>
         </div>
       </div>
+
+      {/* Orders by size — a different population: every guest, room or not */}
+      <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1">Orders by size</h3>
+        <p className="text-xs text-muted-foreground mb-3 sm:mb-4">
+          How many people each order covers. Counts every guest, including the{' '}
+          <span className="text-foreground font-semibold">{stats.guestsWithoutRoom}</span> with no room assigned.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-6">
+          <div className="text-center">
+            <p className="text-2xl sm:text-4xl font-bold text-foreground"><CountUp value={stats.uniqueOrders} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Total orders</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl sm:text-4xl font-bold text-blue-400"><CountUp value={stats.singleRooms} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Orders of 1</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl sm:text-4xl font-bold text-cyan-400"><CountUp value={stats.doubleRooms} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Orders of 2</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl sm:text-4xl font-bold text-emerald-400"><CountUp value={stats.tripleRooms} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Orders of 3+</p>
+          </div>
+          <div className="text-center col-span-2 md:col-span-1">
+            <p className="text-2xl sm:text-4xl font-bold text-primary"><CountUp value={stats.guestsInMultiPersonOrders} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Guests in those</p>
+            <p className="text-xs text-muted-foreground hidden sm:block">(orders of 2+)</p>
+          </div>
+        </div>
+      </div>
+
       {/* Staff rooms + occupancy % (secondary) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
         <div className="bg-card rounded-xl border border-border p-4 sm:p-5">
