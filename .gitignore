@@ -10,6 +10,9 @@ next.user-config.*
 # Environment variables
 .env*.local
 
+# Attendee exports, backups and rollback files. Personal data — never commit.
+data/
+
 # Common ignores
 node_modules
 .next/
