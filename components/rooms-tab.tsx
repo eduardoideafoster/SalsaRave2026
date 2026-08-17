@@ -10,6 +10,7 @@ import { generateCSV, downloadCSV, csvToObjects } from '@/lib/csv'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SortHeader, compareBy, SortState } from '@/components/sort-header'
+import { validateRooming } from '@/lib/rooming-rules'
 import { useT } from '@/lib/i18n'
 import { RoomDetailDialog } from '@/components/room-detail-dialog'
 import { RoomEditDialog } from '@/components/room-edit-dialog'
@@ -187,6 +188,11 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
     out: room.check_out_date ?? stayByRoom.get(room.id)?.out ?? null,
     overridden: !!(room.check_in_date || room.check_out_date),
   })
+
+  // Rule checks over the whole rooming, shown but never blocking.
+  const warnings = validateRooming({ rooms, guests, bookings })
+  const errorCount = warnings.filter((w) => w.severity === 'error').length
+  const softCount = warnings.length - errorCount
 
   const filteredRooms = rooms.filter((room) => {
     const q = searchQuery.toLowerCase()
@@ -641,6 +647,29 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
           </div>
         </div>
       </div>
+
+      {warnings.length > 0 && (
+        <details className="bg-card rounded-lg border border-border overflow-hidden">
+          <summary className="cursor-pointer select-none px-4 py-3 text-sm flex items-center gap-3">
+            <span className={errorCount > 0 ? 'text-red-400 font-semibold' : 'text-amber-400 font-semibold'}>
+              {errorCount > 0 && `${errorCount} to fix`}
+              {errorCount > 0 && softCount > 0 && ' · '}
+              {softCount > 0 && `${softCount} to review`}
+            </span>
+            <span className="text-muted-foreground text-xs">rule checks — click to see them</span>
+          </summary>
+          <ul className="px-4 pb-3 space-y-1 text-xs">
+            {warnings.map((w, i) => (
+              <li
+                key={`${w.code}-${i}`}
+                className={w.severity === 'error' ? 'text-red-300' : 'text-amber-300'}
+              >
+                · {w.message}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <div className="flex items-start justify-between flex-wrap gap-3 sm:gap-4">
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-4 w-full lg:w-auto">
