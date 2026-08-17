@@ -1,9 +1,11 @@
-// Hotel cost computation, per the rates Eduardo confirmed on 2026-08-17.
-// Everything is per person per night:
+// Hotel cost computation. Two rate sets, both confirmed by Eduardo on
+// 2026-08-17, per person per night:
 //
-//            single    twin / matrimonial
-//   H3        85 €           58 €
-//   H4       108 €           83 €
+//                    single    twin / matrimonial
+//   /finance   H3      85 €           58 €
+//              H4     108 €           83 €
+//   /interno   H3      78 €           57 €
+//              H4      98 €           77 €
 //
 // Triple and quadruple charge the twin rate for the first two occupants and
 // take 15% off the 3rd and 4th.
@@ -16,6 +18,21 @@ export const RATES = {
   H3: { single: 85, shared: 58 },
   H4: { single: 108, shared: 83 },
 } as const
+
+/**
+ * What /interno costs the rooms at. Same rules, lower numbers — the two
+ * pages are meant to disagree, so neither set is "the" rate and both are
+ * passed in explicitly rather than picked up from module scope.
+ */
+export const INTERNAL_RATES = {
+  H3: { single: 78, shared: 57 },
+  H4: { single: 98, shared: 77 },
+} as const
+
+export type HotelRates = {
+  readonly H3: { readonly single: number; readonly shared: number }
+  readonly H4: { readonly single: number; readonly shared: number }
+}
 
 export const EXTRA_OCCUPANT_DISCOUNT = 0.15
 
@@ -50,9 +67,10 @@ function* iterateNights(start: string, endExclusive: string): Generator<string> 
 function nightlyRoomCost(
   room: RoomForCost,
   occupantsThisNight: number,
+  allRates: HotelRates,
 ): number {
   if (occupantsThisNight === 0) return 0
-  const rates = RATES[room.hotel]
+  const rates = allRates[room.hotel]
   // A single room with exactly one person in it is the only case that gets the
   // single rate. Everything else is shared, including a single room that ended
   // up with two people in it.
@@ -70,6 +88,7 @@ function nightlyRoomCost(
 export function computeHotelCost(
   bookings: BookingForCost[],
   rooms: RoomForCost[],
+  rates: HotelRates = RATES,
 ): CostBreakdown {
   const roomById = new Map(rooms.map((r) => [r.id, r]))
 
@@ -98,7 +117,7 @@ export function computeHotelCost(
     const [roomId] = key.split('|')
     const room = roomById.get(roomId)
     if (!room) continue
-    const cost = nightlyRoomCost(room, occupants)
+    const cost = nightlyRoomCost(room, occupants, rates)
     breakdown.total += cost
     breakdown.byHotel[room.hotel] += cost
     breakdown.byRoomType[room.room_type] += cost

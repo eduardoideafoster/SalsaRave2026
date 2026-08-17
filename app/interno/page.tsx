@@ -14,7 +14,7 @@ import {
 import { Trash2, Plus, LogOut, Upload, Globe } from 'lucide-react'
 import { logout } from './login/actions'
 import { importPaymentsXlsx } from './actions'
-import { computeHotelCost } from '@/lib/finance/hotel-cost'
+import { computeHotelCost, INTERNAL_RATES } from '@/lib/finance/hotel-cost'
 import { useLang, useT } from '@/lib/i18n'
 import { useRouter } from 'next/navigation'
 
@@ -144,7 +144,7 @@ export default function FinancePage() {
   )
 
   const hotelCost = useMemo(
-    () => computeHotelCost(bookings, rooms),
+    () => computeHotelCost(bookings, rooms, INTERNAL_RATES),
     [bookings, rooms],
   )
 
