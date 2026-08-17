@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Guest, Room, Booking } from '@/lib/types'
 import { Spinner } from '@/components/ui/spinner'
+import { WorldPresenceMap } from '@/components/world-presence-map'
 import { Users, MapPin, Ticket, Calendar, BedDouble, Music } from 'lucide-react'
 
 interface StatCardProps {
@@ -109,6 +110,18 @@ export function StatisticsTab() {
     })
     const countries = Array.from(countryMap.entries())
       .sort((a, b) => b[1] - a[1])
+
+    // Same population as `countries`, split by role for the map's tooltip.
+    const presenceMap = new Map<string, { country: string; total: number; leaders: number; followers: number }>()
+    guests.forEach(g => {
+      const country = g.country || 'Unknown'
+      const row = presenceMap.get(country) ?? { country, total: 0, leaders: 0, followers: 0 }
+      row.total++
+      if (g.role === 'Leader') row.leaders++
+      else if (g.role === 'Follower') row.followers++
+      presenceMap.set(country, row)
+    })
+    const countryPresence = Array.from(presenceMap.values()).sort((a, b) => b.total - a.total)
 
     // Ticket type distribution
     const ticketMap = new Map<string, number>()
@@ -239,6 +252,7 @@ export function StatisticsTab() {
       followers,
       both,
       countries,
+      countryPresence,
       tickets,
       withRoom,
       ravepassOnly,
@@ -668,6 +682,9 @@ export function StatisticsTab() {
         <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">
           Country Distribution ({stats.countries.length} countries)
         </h3>
+        <div className="mb-4 sm:mb-6">
+          <WorldPresenceMap data={stats.countryPresence} />
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
           {stats.countries.map(([country, count]) => (
             <div
