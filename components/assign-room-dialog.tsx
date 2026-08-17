@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Guest, Room, Booking } from '@/lib/types'
+import { Guest, Room, Booking, allowedRoomTypes } from '@/lib/types'
 import {
   Dialog,
   DialogContent,
@@ -46,16 +46,24 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
     return bookings.find((b) => b.guest_id === guest.id && b.status !== 'cancelled') ?? null
   }, [guest, bookings])
 
-  // Only show rooms that match the guest's hotel, are not staff, and aren't full.
+  // Rooms for this guest's hotel. Staff rooms stay in the list, marked:
+  // excluding them left four free H4 rooms impossible to assign, and a
+  // staff room holds staff, who are guests like anyone else.
   const candidates = useMemo(() => {
     if (!guest) return []
     const term = search.toLowerCase()
     return rooms
-      .filter((r) => !r.is_staff && r.status !== 'maintenance' && r.status !== 'blocked')
+      .filter((r) => r.status !== 'maintenance' && r.status !== 'blocked')
       .filter((r) => (guest.hotel ? r.hotel === guest.hotel : true))
       .filter((r) => r.room_number.toLowerCase().includes(term))
       .sort((a, b) => Number(a.room_number) - Number(b.room_number))
   }, [rooms, guest, search])
+
+  /** What an emptied room goes back to. 'double' no longer exists. */
+  function restingType(room: Room): { room_type: Room['room_type']; capacity: number } {
+    const allowed = allowedRoomTypes(room.hotel, room.room_number)
+    return { room_type: allowed.includes('twin') ? 'twin' : 'matrimonial', capacity: 2 }
+  }
 
   async function assign(room: Room) {
     if (!guest) return
@@ -99,7 +107,7 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
     if (
       occupantsInNewRoom === 1 &&
       guest.ticket_type.toUpperCase().includes('SINGLE ROOM') &&
-      room.room_type === 'double'
+      room.room_type !== 'single'
     ) {
       await supabase.from('rooms').update({ room_type: 'single', capacity: 1 }).eq('id', room.id)
     }
@@ -108,7 +116,7 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
       const prevOccupants = (occupants.get(previousRoomId)?.length ?? 1) - 1
       const prevRoom = rooms.find((r) => r.id === previousRoomId)
       if (prevRoom?.room_type === 'single' && prevOccupants === 0) {
-        await supabase.from('rooms').update({ room_type: 'double', capacity: 2 }).eq('id', previousRoomId)
+        await supabase.from('rooms').update(restingType(prevRoom)).eq('id', previousRoomId)
       }
     }
 
@@ -126,7 +134,7 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
     const room = rooms.find((r) => r.id === roomId)
     const remaining = (occupants.get(roomId)?.length ?? 1) - 1
     if (room?.room_type === 'single' && remaining === 0) {
-      await supabase.from('rooms').update({ room_type: 'double', capacity: 2 }).eq('id', roomId)
+      await supabase.from('rooms').update(restingType(room)).eq('id', roomId)
     }
     setBusy(null)
     onChanged()
@@ -205,6 +213,12 @@ export function AssignRoomDialog({ guest, rooms, bookings, open, onOpenChange, o
                       <BedDouble className="size-4 text-muted-foreground" />
                       <span className="font-mono font-semibold text-foreground">{room.room_number}</span>
                       <span className="text-xs text-muted-foreground capitalize">{room.hotel}</span>
+                      <span className="text-xs text-muted-foreground capitalize">{room.room_type}</span>
+                      {room.is_staff && (
+                        <span className="text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          staff
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 text-xs">
                       <span
