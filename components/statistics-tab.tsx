@@ -187,12 +187,17 @@ export function StatisticsTab() {
     const h3Booked = h3Guest.filter((r) => bookedRoomIds.has(r.id)).length
     const h4Booked = h4Guest.filter((r) => bookedRoomIds.has(r.id)).length
 
-    // Capacity per night follows the hotel's hard contract:
-    //   160 rooms open Mon–Thu, 110 more open from Fri (270 total).
-    // This is independent of how `rooms.available_from` is set per row, which
-    // can drift if some rooms are flagged early for staff or special cases.
-    const inventoryThu = 160
-    const inventoryFri = 270
+    // Inventory comes from the rooms themselves. It used to be hard-coded
+    // at 160 for Thursday and 270 for Friday, which went stale the moment
+    // the ten blocked rooms were released: it then read 271 rooms in use
+    // against a ceiling of 270 and reported one room oversold, while the
+    // panel below correctly showed nine still to sell.
+    const inventoryOn = (date: string) =>
+      rooms.filter(
+        (r) => r.status !== 'maintenance' && r.status !== 'blocked' && r.available_from <= date,
+      ).length
+    const inventoryThu = inventoryOn('2026-09-10')
+    const inventoryFri = inventoryOn('2026-09-11')
     // Distinct rooms in use on each night
     // Checkout date is inclusive (the room is still considered occupied on the day a guest leaves).
     const roomsOnSep10 = new Set(
