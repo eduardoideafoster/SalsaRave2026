@@ -84,6 +84,7 @@ export default function FinancePage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [bookings, setBookings] = useState<BookingRow[]>([])
   const [rooms, setRooms] = useState<RoomRow[]>([])
+  const [guestCount, setGuestCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({
     type: 'expense' as 'income' | 'expense',
@@ -97,16 +98,18 @@ export default function FinancePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
-    const [entriesRes, paymentsRes, bookingsRes, roomsRes] = await Promise.all([
+    const [entriesRes, paymentsRes, bookingsRes, roomsRes, guestsRes] = await Promise.all([
       supabase.from('finance_entries').select('*').order('date', { ascending: false }),
       supabase.from('payments').select('locator, order_code, ticket, price_eur'),
       supabase.from('bookings').select('room_id, check_in_date, check_out_date'),
       supabase.from('rooms').select('id, hotel, room_type'),
+      supabase.from('guests').select('id', { count: 'exact', head: true }),
     ])
     setEntries((entriesRes.data as Entry[]) ?? [])
     setPayments((paymentsRes.data as Payment[]) ?? [])
     setBookings((bookingsRes.data as BookingRow[]) ?? [])
     setRooms((roomsRes.data as RoomRow[]) ?? [])
+    setGuestCount(guestsRes.count ?? 0)
     setLoading(false)
   }, [supabase])
 
@@ -268,7 +271,10 @@ export default function FinancePage() {
             label={t('finance.paid')}
             value={totalPaid}
             tone="emerald"
-            hint={t('finance.paidHint', { n: payments.length })}
+            // Two different populations, and saying only one of them was the
+            // bug: the export has a line per ticket sold, the guest list has a
+            // row per person, and staff and Core Tribe never appear in a sale.
+            hint={t('finance.paidHint', { guests: guestCount, rows: payments.length })}
           />
           <StatCard
             label={t('finance.hotelCost')}
