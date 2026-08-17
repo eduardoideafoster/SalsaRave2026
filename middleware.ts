@@ -8,8 +8,14 @@ import { createServerClient } from '@supabase/ssr'
  * The database now only answers to an authenticated session, and this
  * keeps that session fresh and sends anyone without one to /login.
  *
- * /finance keeps its own extra password on top.
+ * /finance and /interno each keep their own extra password on top, with
+ * separate cookies: getting into one does not get you into the other.
  */
+const PASSWORD_WALLED = [
+  { prefix: '/finance', login: '/finance/login', cookie: 'finance-auth' },
+  { prefix: '/interno', login: '/interno/login', cookie: 'interno-auth' },
+] as const
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
   let res = NextResponse.next({ request: req })
@@ -49,11 +55,13 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (pathname.startsWith('/finance') && pathname !== '/finance/login') {
-    if (req.cookies.get('finance-auth')?.value !== 'ok') {
-      const url = req.nextUrl.clone()
-      url.pathname = '/finance/login'
-      return NextResponse.redirect(url)
+  for (const area of PASSWORD_WALLED) {
+    if (pathname.startsWith(area.prefix) && pathname !== area.login) {
+      if (req.cookies.get(area.cookie)?.value !== 'ok') {
+        const url = req.nextUrl.clone()
+        url.pathname = area.login
+        return NextResponse.redirect(url)
+      }
     }
   }
 
