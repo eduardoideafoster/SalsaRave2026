@@ -317,10 +317,15 @@ export function GuestsTab({ openGuestId, onOpenGuestHandled, onOpenGuest }: Gues
     setBulkPatch({})
   }
 
+  // A field set back to "— skip —" leaves an undefined value behind. Those are
+  // not edits, so they must not count towards "there is something to apply" nor
+  // travel in the update body.
+  const bulkEdits = Object.entries(bulkPatch).filter(([, v]) => v !== undefined)
+
   const applyBulkPatch = async () => {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
-    const patch = { ...bulkPatch }
+    const patch = Object.fromEntries(bulkEdits) as Partial<Guest>
     if (Object.keys(patch).length === 0) return
     const { error } = await supabase.from('guests').update(patch).in('id', ids)
     if (!error) {
@@ -771,6 +776,30 @@ export function GuestsTab({ openGuestId, onOpenGuestHandled, onOpenGuest }: Gues
               </Select>
             </div>
             <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Country</span>
+              <Select
+                value={
+                  bulkPatch.country === undefined ? '__skip__' : bulkPatch.country === null ? 'none' : bulkPatch.country
+                }
+                onValueChange={(v) =>
+                  setBulkPatch({
+                    ...bulkPatch,
+                    country: v === '__skip__' ? undefined : v === 'none' ? null : v,
+                  })
+                }
+              >
+                <SelectTrigger className="h-8 w-40 text-sm bg-card border-border"><SelectValue /></SelectTrigger>
+                {/* Only countries already in use, so a bulk edit cannot invent a
+                    second spelling of one we already have. A brand new country
+                    goes in through the pencil on a single row first. */}
+                <SelectContent className="bg-card border-border max-h-72">
+                  <SelectItem value="__skip__">— skip —</SelectItem>
+                  <SelectItem value="none">No country</SelectItem>
+                  {countryOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">Tribe</span>
               <Select
                 value={
@@ -828,7 +857,7 @@ export function GuestsTab({ openGuestId, onOpenGuestHandled, onOpenGuest }: Gues
                 className="h-8 w-36 text-sm bg-card border-border"
               />
             </div>
-            <Button size="sm" onClick={applyBulkPatch} disabled={Object.keys(bulkPatch).length === 0}>
+            <Button size="sm" onClick={applyBulkPatch} disabled={bulkEdits.length === 0}>
               <Check className="size-4 mr-1" />Apply to {selectedIds.size}
             </Button>
           </div>
