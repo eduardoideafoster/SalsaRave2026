@@ -1,40 +1,57 @@
-// Hotel cost computation. Two rate sets, both confirmed by Eduardo on
-// 2026-08-17, per person per night:
+// Hotel cost, per person per night. The rate depends on how many people
+// actually sleep in the room that night, not on what anyone bought: one person
+// alone pays the individual rate even if the room is labelled matrimonial, and
+// a single room that ends up with two in it is charged as a shared one.
 //
-//                    single    twin / matrimonial
-//   /finance   H3      85 €           58 €
-//              H4     108 €           83 €
-//   /interno   H3      78 €           57 €
-//              H4      98 €           77 €
-//
-// Triple and quadruple charge the twin rate for the first two occupants and
-// take 15% off the 3rd and 4th.
-//
-// The rate follows who actually sleeps in the room on each night, not what
-// anyone bought: a single room with two people in it is charged as shared.
 // Guests with no room booking (RavePass only) contribute zero.
 
-export const RATES = {
-  H3: { single: 85, shared: 58 },
-  H4: { single: 108, shared: 83 },
-} as const
-
-/**
- * What /interno costs the rooms at. Same rules, lower numbers — the two
- * pages are meant to disagree, so neither set is "the" rate and both are
- * passed in explicitly rather than picked up from module scope.
- */
-export const INTERNAL_RATES = {
-  H3: { single: 78, shared: 57 },
-  H4: { single: 98, shared: 77 },
-} as const
-
-export type HotelRates = {
-  readonly H3: { readonly single: number; readonly shared: number }
-  readonly H4: { readonly single: number; readonly shared: number }
+/** Per-person rate by how many share the room that night. */
+export interface OccupancyRates {
+  readonly 1: number
+  readonly 2: number
+  readonly 3: number
+  readonly 4: number
 }
 
-export const EXTRA_OCCUPANT_DISCOUNT = 0.15
+export type HotelRates = {
+  readonly H3: OccupancyRates
+  readonly H4: OccupancyRates
+}
+
+/**
+ * The /finance rates are quoted as a single and a shared price, with 15% off
+ * the 3rd and 4th occupant. Spread across everyone in the room that is 5% off
+ * a triple and 7.5% off a quadruple — exactly, not approximately — so the two
+ * ways of saying it produce the same bill.
+ */
+const EXTRA_OCCUPANT_DISCOUNT = 0.15
+const fromSharedRate = (single: number, shared: number): OccupancyRates => ({
+  1: single,
+  2: shared,
+  3: (shared * (2 + (1 - EXTRA_OCCUPANT_DISCOUNT))) / 3,
+  4: (shared * (2 + 2 * (1 - EXTRA_OCCUPANT_DISCOUNT))) / 4,
+})
+
+/** What /finance charges: H3 85/58, H4 108/83, 15% off the 3rd and 4th. */
+export const RATES: HotelRates = {
+  H3: fromSharedRate(85, 58),
+  H4: fromSharedRate(108, 83),
+}
+
+/**
+ * What /interno charges — straight off the hotel's own price list of
+ * 2026-08-17, which prices a triple and a quadruple outright instead of
+ * discounting the extra guests. H4 is where the two ways part company: its
+ * triple and quadruple are cheaper than any percentage off the double.
+ *
+ * The list also shows a 25 € single supplement, which is simply the gap
+ * between the shared and the individual rate (57 + 25 = 82, 77 + 25 = 102),
+ * so it is already inside these numbers rather than something to add on.
+ */
+export const INTERNAL_RATES: HotelRates = {
+  H3: { 1: 82, 2: 57, 3: 54.15, 4: 52.73 },
+  H4: { 1: 102, 2: 77, 3: 67.48, 4: 62.73 },
+}
 
 export interface BookingForCost {
   room_id: string
@@ -71,18 +88,10 @@ function nightlyRoomCost(
 ): number {
   if (occupantsThisNight === 0) return 0
   const rates = allRates[room.hotel]
-  // A single room with exactly one person in it is the only case that gets the
-  // single rate. Everything else is shared, including a single room that ended
-  // up with two people in it.
-  if (room.room_type === 'single' && occupantsThisNight === 1) {
-    return rates.single
-  }
-  const base = Math.min(occupantsThisNight, 2) * rates.shared
-  const extra =
-    Math.max(0, occupantsThisNight - 2) *
-    rates.shared *
-    (1 - EXTRA_OCCUPANT_DISCOUNT)
-  return base + extra
+  // Rooms cannot hold more than four, but a data slip should bill at the
+  // cheapest published rate rather than crash.
+  const band = Math.min(occupantsThisNight, 4) as 1 | 2 | 3 | 4
+  return occupantsThisNight * rates[band]
 }
 
 export function computeHotelCost(
