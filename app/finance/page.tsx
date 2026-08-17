@@ -174,7 +174,9 @@ export default function FinancePage() {
           inserted: res.inserted,
           updated: res.updated,
           amount: fmt(res.totalPrice),
-        }),
+        }) +
+          // Silence here would look like the file simply had fewer rows.
+          (res.skipped > 0 ? ` · ${res.skipped} test row(s) ignored` : ''),
       )
       load()
     } else {

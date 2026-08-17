@@ -25,6 +25,15 @@ interface RawAttendeeRow {
   Country?: string
 }
 
+/**
+ * Orders that exist in the ticketing system but are not sales. W7YCK is the
+ * "TESTING 4" / "TESTING 5" pair Eduardo put through the checkout at 400 € each;
+ * left in, they overstate the takings by 800 €.
+ *
+ * Add an order code here if a future test shows up in the export.
+ */
+const NOT_A_SALE = new Set(['W7YCK'])
+
 interface ParsedPayment {
   locator: number
   attendee_index: number
@@ -42,7 +51,7 @@ interface ParsedPayment {
 }
 
 export async function importPaymentsXlsx(formData: FormData): Promise<
-  | { ok: true; inserted: number; updated: number; totalPrice: number }
+  | { ok: true; inserted: number; updated: number; skipped: number; totalPrice: number }
   | { ok: false; error: string }
 > {
   const file = formData.get('file')
@@ -60,10 +69,15 @@ export async function importPaymentsXlsx(formData: FormData): Promise<
 
   const parsed: ParsedPayment[] = []
   const indexByLocator = new Map<number, number>()
+  let skipped = 0
   for (const r of rows) {
     const locator = Number(r.Locator)
     if (!Number.isFinite(locator) || locator <= 0) continue
     if (!r.Order || !r.Ticket) continue
+    if (NOT_A_SALE.has(String(r.Order).trim())) {
+      skipped++
+      continue
+    }
     const attendee_index = (indexByLocator.get(locator) ?? 0) + 1
     indexByLocator.set(locator, attendee_index)
     parsed.push({
@@ -107,5 +121,5 @@ export async function importPaymentsXlsx(formData: FormData): Promise<
     else inserted++
   }
   const totalPrice = parsed.reduce((a, p) => a + p.price_eur, 0)
-  return { ok: true, inserted, updated, totalPrice }
+  return { ok: true, inserted, updated, skipped, totalPrice }
 }

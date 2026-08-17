@@ -72,6 +72,18 @@ export function validateRooming({
       })
     }
 
+    // Matrimonial means two people sharing one bed. One person in it is a
+    // single and should say so: the label drives the hotel rate, so leaving it
+    // as matrimonial quietly bills 83 € instead of 108 € in H4.
+    if (room.room_type === 'matrimonial' && bs.length === 1) {
+      warnings.push({
+        code: 'matrimonial-alone',
+        severity: 'error',
+        message: `${room.hotel} ${room.room_number}: matrimonial with one guest — relabel it single`,
+        ...where,
+      })
+    }
+
     const expected = CAPACITY_FOR_TYPE[room.room_type]
     if (expected !== undefined && room.capacity !== expected) {
       warnings.push({
