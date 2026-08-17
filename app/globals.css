@@ -135,3 +135,48 @@
     max-width: 100vw;
   }
 }
+
+
+/* Rotating gradient border for the headline stat cards.
+   A registered custom property is what makes the angle animatable —
+   without @property the browser cannot interpolate it and the ring sits
+   still. The ring is a masked pseudo-element so each card keeps the
+   background it already had. */
+@property --spin-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes spin-border {
+  to { --spin-angle: 360deg; }
+}
+
+.spin-border {
+  position: relative;
+}
+
+.spin-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--spin-angle),
+    transparent 0turn,
+    var(--spin-color, #34d399) 0.12turn,
+    transparent 0.3turn,
+    transparent 1turn
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: spin-border 4s linear infinite;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin-border::before { animation: none; }
+}

@@ -225,12 +225,18 @@ export function StatisticsTab() {
       : 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/40'
   const numberTone = (n: number) =>
     n < 0 ? 'text-red-400' : n === 0 ? 'text-amber-400' : 'text-emerald-400'
+  // Colour of the travelling highlight on each card's border.
+  const spinColor = (n: number) =>
+    n < 0 ? '#f87171' : n === 0 ? '#fbbf24' : '#34d399'
 
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Sellable rooms per check-in window — what can still go on sale */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-        <div className={`bg-gradient-to-br ${cardTone(stats.fourNightFree)} rounded-xl border p-4 sm:p-6`}>
+        <div
+          className={`spin-border bg-gradient-to-br ${cardTone(stats.fourNightFree)} rounded-xl border p-4 sm:p-6`}
+          style={{ '--spin-color': spinColor(stats.fourNightFree) } as React.CSSProperties}
+        >
           <div className="flex items-center gap-2 mb-2">
             <BedDouble className="size-5 text-foreground/80" />
             <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-foreground/90">
@@ -248,7 +254,10 @@ export function StatisticsTab() {
             {stats.roomsOnSep10}/{stats.inventoryThu} rooms in use Thu night
           </div>
         </div>
-        <div className={`bg-gradient-to-br ${cardTone(stats.threeNightFree)} rounded-xl border p-4 sm:p-6`}>
+        <div
+          className={`spin-border bg-gradient-to-br ${cardTone(stats.threeNightFree)} rounded-xl border p-4 sm:p-6`}
+          style={{ '--spin-color': spinColor(stats.threeNightFree) } as React.CSSProperties}
+        >
           <div className="flex items-center gap-2 mb-2">
             <BedDouble className="size-5 text-foreground/80" />
             <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-foreground/90">
@@ -270,7 +279,10 @@ export function StatisticsTab() {
 
       {/* Rooms Remaining — global + per-hotel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
-        <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-xl border border-emerald-500/40 p-4 sm:p-6">
+        <div
+          className="spin-border bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-xl border border-emerald-500/40 p-4 sm:p-6"
+          style={{ '--spin-color': '#34d399' } as React.CSSProperties}
+        >
           <div className="flex items-center gap-2 text-emerald-400 mb-2">
             <BedDouble className="size-5" />
             <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider">Total Remaining</span>
@@ -282,7 +294,10 @@ export function StatisticsTab() {
             of <span className="text-foreground font-semibold">{stats.guestRoomsTotal}</span> guest rooms · {stats.guestRoomsBooked} booked
           </div>
         </div>
-        <div className="bg-gradient-to-br from-slate-500/15 to-slate-500/5 rounded-xl border border-slate-500/40 p-4 sm:p-6">
+        <div
+          className="spin-border bg-gradient-to-br from-slate-500/15 to-slate-500/5 rounded-xl border border-slate-500/40 p-4 sm:p-6"
+          style={{ '--spin-color': '#cbd5e1' } as React.CSSProperties}
+        >
           <div className="flex items-center gap-2 text-slate-300 mb-2">
             <BedDouble className="size-5" />
             <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider">H3 — Standard</span>
@@ -294,7 +309,10 @@ export function StatisticsTab() {
             of <span className="text-foreground font-semibold">{stats.h3GuestTotal}</span> · {stats.h3Booked} booked
           </div>
         </div>
-        <div className="bg-gradient-to-br from-amber-500/20 to-amber-500/5 rounded-xl border border-amber-500/40 p-4 sm:p-6">
+        <div
+          className="spin-border bg-gradient-to-br from-amber-500/20 to-amber-500/5 rounded-xl border border-amber-500/40 p-4 sm:p-6"
+          style={{ '--spin-color': '#fbbf24' } as React.CSSProperties}
+        >
           <div className="flex items-center gap-2 text-amber-400 mb-2">
             <BedDouble className="size-5" />
             <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider">H4 — Upgraded</span>
