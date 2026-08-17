@@ -27,3 +27,13 @@ alter table finance_entries
 
 comment on column finance_entries.scope is
   'Which page owns this entry: /finance or /interno. Never both — the pages share only the ticket sales figure.';
+
+-- Some of these are money already gone (the slipmats were bought months ago)
+-- and some are commitments (the artists and DJs get paid at the event). Only
+-- the unpaid ones count towards what is still owed, so the two need telling
+-- apart. Existing rows default to paid; the ones that are not get unticked by
+-- hand, which is a judgement call rather than something to guess here.
+alter table finance_entries add column if not exists paid boolean not null default true;
+
+comment on column finance_entries.paid is
+  'Whether the money has actually left. Only the unpaid ones count towards what is still owed.';
