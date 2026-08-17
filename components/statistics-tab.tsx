@@ -210,8 +210,28 @@ export function StatisticsTab() {
         .filter((b) => b.status !== 'cancelled' && b.check_in_date <= '2026-09-11' && b.check_out_date >= '2026-09-11')
         .map((b) => b.room_id),
     ).size
-    const fourNightFree = inventoryThu - roomsOnSep10
-    const threeNightFree = inventoryFri - roomsOnSep11
+    // Sellable means free for the WHOLE stay, not just the first night.
+    // Counting rooms idle on Thursday claimed 28 were sellable as
+    // 4-night stays, but every one of them is taken from Friday by
+    // someone arriving then: none can actually be sold Thu to Mon.
+    const sellableForStay = (checkIn: string, lastNight: string) =>
+      rooms.filter(
+        (r) =>
+          r.status !== 'maintenance' &&
+          r.status !== 'blocked' &&
+          r.available_from <= checkIn &&
+          !bookings.some(
+            (b) =>
+              b.status !== 'cancelled' &&
+              b.room_id === r.id &&
+              b.check_in_date <= lastNight &&
+              b.check_out_date >= checkIn,
+          ),
+      ).length
+
+    // Nights, not dates: a Thursday check-in occupies Thu, Fri, Sat, Sun.
+    const fourNightFree = sellableForStay('2026-09-10', '2026-09-13')
+    const threeNightFree = sellableForStay('2026-09-11', '2026-09-13')
 
     return {
       total,
@@ -266,7 +286,7 @@ export function StatisticsTab() {
 
   // Helpers for the per-night sales-capacity cards
   const fmtDelta = (n: number) =>
-    n > 0 ? `${n} free` : n < 0 ? `+${-n} over` : 'exact'
+    n > 0 ? `${n} free for the whole stay` : 'none left'
   const deltaColor = (n: number) =>
     n > 0 ? 'text-emerald-400' : n < 0 ? 'text-red-400' : 'text-muted-foreground'
   const cardTone = (n: number) =>
