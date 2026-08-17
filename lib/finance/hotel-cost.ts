@@ -1,16 +1,20 @@
-// Hotel cost computation per the SalsaRave 2026 contract:
-//   H3 single  82 €/pp/night
-//   H3 double  57 €/pp/night
-//   H4 single 102 €/pp/night
-//   H4 double  77 €/pp/night
-// Everything that is not a single — double, twin, matrimonial, triple,
-// quadruple — uses the "double" rate; the 3rd and 4th occupants per
-// night get a 15% discount.
-// Guests without a room booking (RavePass only) contribute zero.
+// Hotel cost computation, per the rates Eduardo confirmed on 2026-08-17.
+// Everything is per person per night:
+//
+//            single    twin / matrimonial
+//   H3        85 €           58 €
+//   H4       108 €           83 €
+//
+// Triple and quadruple charge the twin rate for the first two occupants and
+// take 15% off the 3rd and 4th.
+//
+// The rate follows who actually sleeps in the room on each night, not what
+// anyone bought: a single room with two people in it is charged as shared.
+// Guests with no room booking (RavePass only) contribute zero.
 
 export const RATES = {
-  H3: { single: 82, double: 57 },
-  H4: { single: 102, double: 77 },
+  H3: { single: 85, shared: 58 },
+  H4: { single: 108, shared: 83 },
 } as const
 
 export const EXTRA_OCCUPANT_DISCOUNT = 0.15
@@ -49,15 +53,16 @@ function nightlyRoomCost(
 ): number {
   if (occupantsThisNight === 0) return 0
   const rates = RATES[room.hotel]
-  // A single room used by exactly one person uses the single rate.
-  // Any other configuration uses the double rate (with discount for 3rd/4th).
+  // A single room with exactly one person in it is the only case that gets the
+  // single rate. Everything else is shared, including a single room that ended
+  // up with two people in it.
   if (room.room_type === 'single' && occupantsThisNight === 1) {
     return rates.single
   }
-  const base = Math.min(occupantsThisNight, 2) * rates.double
+  const base = Math.min(occupantsThisNight, 2) * rates.shared
   const extra =
     Math.max(0, occupantsThisNight - 2) *
-    rates.double *
+    rates.shared *
     (1 - EXTRA_OCCUPANT_DISCOUNT)
   return base + extra
 }
