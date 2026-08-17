@@ -56,6 +56,21 @@ function DistributionBar({ label, count, total, color }: DistributionBarProps) {
   )
 }
 
+
+/**
+ * A number that tweens from zero. The digits come from a CSS counter
+ * driven by a registered integer property, so the browser interpolates
+ * it; the real value stays in the DOM for screen readers.
+ */
+function CountUp({ value, className }: { value: number; className?: string }) {
+  return (
+    <span className={className}>
+      <span className="count-up" aria-hidden style={{ '--count-to': value } as React.CSSProperties} />
+      <span className="sr-only">{value}</span>
+    </span>
+  )
+}
+
 export function StatisticsTab() {
   const [guests, setGuests] = useState<Guest[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
@@ -229,6 +244,19 @@ export function StatisticsTab() {
   const spinColor = (n: number) =>
     n < 0 ? '#f87171' : n === 0 ? '#fbbf24' : '#34d399'
 
+  // How the inventory breaks down by bed layout.
+  const typeCounts = rooms.reduce<Record<string, number>>((acc, r) => {
+    acc[r.room_type] = (acc[r.room_type] ?? 0) + 1
+    return acc
+  }, {})
+  const typeCards: { key: string; label: string; tone: string }[] = [
+    { key: 'single', label: 'Single', tone: 'text-sky-300' },
+    { key: 'twin', label: 'Twin', tone: 'text-teal-300' },
+    { key: 'matrimonial', label: 'Matrimonial', tone: 'text-fuchsia-300' },
+    { key: 'triple', label: 'Triple', tone: 'text-amber-300' },
+    { key: 'quadruple', label: 'Quadruple', tone: 'text-rose-300' },
+  ]
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Sellable rooms per check-in window — what can still go on sale */}
@@ -326,6 +354,51 @@ export function StatisticsTab() {
         </div>
       </div>
 
+      {/* Rooms by bed layout */}
+      <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Rooms by type</h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-6">
+          {typeCards.map((c) => (
+            <div key={c.key} className="text-center">
+              <p className={`text-2xl sm:text-4xl font-bold ${c.tone}`}>
+                <CountUp value={typeCounts[c.key] ?? 0} />
+              </p>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">{c.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Room Sharing Stats */}
+      <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Room Sharing Statistics</h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-6">
+          <div className="text-center">
+            <p className="text-2xl sm:text-4xl font-bold text-foreground"><CountUp value={stats.uniqueOrders} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Total Orders</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl sm:text-4xl font-bold text-blue-400"><CountUp value={stats.singleRooms} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Single Bookings</p>
+            <p className="text-xs text-muted-foreground hidden sm:block">(1 person/order)</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl sm:text-4xl font-bold text-cyan-400"><CountUp value={stats.doubleRooms} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Double Bookings</p>
+            <p className="text-xs text-muted-foreground hidden sm:block">(2 people/order)</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl sm:text-4xl font-bold text-emerald-400"><CountUp value={stats.tripleRooms} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Triple Bookings</p>
+            <p className="text-xs text-muted-foreground hidden sm:block">(3+ people/order)</p>
+          </div>
+          <div className="text-center col-span-2 md:col-span-1">
+            <p className="text-2xl sm:text-4xl font-bold text-primary"><CountUp value={stats.guestsInSharedRooms} /></p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Sharing Rooms</p>
+            <p className="text-xs text-muted-foreground hidden sm:block">(guests in shared)</p>
+          </div>
+        </div>
+      </div>
       {/* Staff rooms + occupancy % (secondary) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
         <div className="bg-card rounded-xl border border-border p-4 sm:p-5">
@@ -518,36 +591,6 @@ export function StatisticsTab() {
         </div>
       </div>
 
-      {/* Room Sharing Stats */}
-      <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
-        <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Room Sharing Statistics</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-6">
-          <div className="text-center">
-            <p className="text-2xl sm:text-4xl font-bold text-foreground">{stats.uniqueOrders}</p>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Total Orders</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl sm:text-4xl font-bold text-blue-400">{stats.singleRooms}</p>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Single Bookings</p>
-            <p className="text-xs text-muted-foreground hidden sm:block">(1 person/order)</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl sm:text-4xl font-bold text-cyan-400">{stats.doubleRooms}</p>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Double Bookings</p>
-            <p className="text-xs text-muted-foreground hidden sm:block">(2 people/order)</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl sm:text-4xl font-bold text-emerald-400">{stats.tripleRooms}</p>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Triple Bookings</p>
-            <p className="text-xs text-muted-foreground hidden sm:block">(3+ people/order)</p>
-          </div>
-          <div className="text-center col-span-2 md:col-span-1">
-            <p className="text-2xl sm:text-4xl font-bold text-primary">{stats.guestsInSharedRooms}</p>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Sharing Rooms</p>
-            <p className="text-xs text-muted-foreground hidden sm:block">(guests in shared)</p>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

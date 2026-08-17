@@ -180,3 +180,33 @@
 @media (prefers-reduced-motion: reduce) {
   .spin-border::before { animation: none; }
 }
+
+
+/* Numbers that tween up from zero. The counter is the trick: a
+   registered integer property can be animated, and counter() renders
+   whatever value it is passing through. */
+@property --num {
+  syntax: "<integer>";
+  initial-value: 0;
+  inherits: false;
+}
+
+@keyframes count-up {
+  to { --num: var(--count-to, 0); }
+}
+
+.count-up {
+  counter-reset: num var(--num);
+  animation: count-up 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.count-up::after {
+  content: counter(num);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .count-up {
+    animation: none;
+    counter-reset: num var(--count-to, 0);
+  }
+}
