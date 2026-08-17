@@ -163,19 +163,31 @@ export function FinanceBoard({
     // What has been committed but not yet handed over. The Hotel category is
     // money already sent, so it is never part of what is still owed.
     let unpaidExpense = 0
+    // Everything that is not the hotel, paid or not: the hotel has its own
+    // cost line and must not appear twice.
+    let otherExpense = 0
     const byCategory = new Map<string, number>()
     for (const e of entries) {
       const amt = Number(e.amount_eur)
       if (e.type === 'income') income += amt
       else {
         expense += amt
-        if (e.category === 'Hotel') hotelPaid += amt
-        else if (!e.paid) unpaidExpense += amt
+        if (e.category === 'Hotel') {
+          // Only money that has actually gone counts as paid. A hotel line
+          // still marked to pay is a plan, and adding it here would claim the
+          // hotel is squared up when nothing has left the account -- and
+          // counting it as a debt would double up with what the room cost
+          // already says is outstanding.
+          if (e.paid) hotelPaid += amt
+        } else {
+          otherExpense += amt
+          if (!e.paid) unpaidExpense += amt
+        }
       }
       const key = `${e.type}:${e.category}`
       byCategory.set(key, (byCategory.get(key) ?? 0) + amt)
     }
-    return { income, expense, hotelPaid, unpaidExpense, otherExpense: expense - hotelPaid, byCategory }
+    return { income, expense, hotelPaid, unpaidExpense, otherExpense, byCategory }
   }, [entries])
 
   const totalPaid = useMemo(
