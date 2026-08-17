@@ -14,7 +14,6 @@ export default function InternoPage() {
       loginPath="/interno/login"
       logout={logout}
       importPaymentsXlsx={importPaymentsXlsx}
-      showTotalOutstanding
     />
   )
 }

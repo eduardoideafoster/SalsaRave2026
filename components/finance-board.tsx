@@ -88,7 +88,6 @@ export function FinanceBoard({
   loginPath,
   logout,
   importPaymentsXlsx,
-  showTotalOutstanding = false,
 }: {
   scope: 'finance' | 'interno'
   rates: HotelRates
@@ -99,8 +98,6 @@ export function FinanceBoard({
     | { ok: true; inserted: number; updated: number; skipped: number; totalPrice: number }
     | { ok: false; error: string }
   >
-  /** Only /interno shows the running total of what is still owed. */
-  showTotalOutstanding?: boolean
 }) {
   const supabase = createClient()
   const router = useRouter()
@@ -387,14 +384,12 @@ export function FinanceBoard({
             tone={hotelOutstanding > 0 ? 'rose' : 'emerald'}
             hint="cost minus what we have handed over"
           />
-          {showTotalOutstanding && (
-            <StatCard
-              label="Total still to pay"
-              value={totalOutstanding}
-              tone={totalOutstanding > 0 ? 'rose' : 'emerald'}
-              hint={`hotel + ${fmt(manual.unpaidExpense)} of expenses not yet paid`}
-            />
-          )}
+          <StatCard
+            label="Total still to pay"
+            value={totalOutstanding}
+            tone={totalOutstanding > 0 ? 'rose' : 'emerald'}
+            hint={`hotel + ${fmt(manual.unpaidExpense)} of expenses not yet paid`}
+          />
         </div>
         <div className="text-xs text-muted-foreground pt-1">
           {t('finance.ravepassNote', {
