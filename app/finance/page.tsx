@@ -117,15 +117,22 @@ export default function FinancePage() {
   const manual = useMemo(() => {
     let income = 0
     let expense = 0
+    // Hotel expenses are money handed over against a cost we already compute
+    // from the bookings, not a cost of their own. Counted in both places the
+    // hotel gets charged twice.
+    let hotelPaid = 0
     const byCategory = new Map<string, number>()
     for (const e of entries) {
       const amt = Number(e.amount_eur)
       if (e.type === 'income') income += amt
-      else expense += amt
+      else {
+        expense += amt
+        if (e.category === 'Hotel') hotelPaid += amt
+      }
       const key = `${e.type}:${e.category}`
       byCategory.set(key, (byCategory.get(key) ?? 0) + amt)
     }
-    return { income, expense, byCategory }
+    return { income, expense, hotelPaid, otherExpense: expense - hotelPaid, byCategory }
   }, [entries])
 
   const totalPaid = useMemo(
@@ -139,7 +146,10 @@ export default function FinancePage() {
   )
 
   const grossMargin = totalPaid - hotelCost.total
-  const netProfit = totalPaid + manual.income - hotelCost.total - manual.expense
+  // The hotel appears once, as the computed cost. What we have handed over so
+  // far is cash flow, shown separately.
+  const netProfit = totalPaid + manual.income - hotelCost.total - manual.otherExpense
+  const hotelOutstanding = hotelCost.total - manual.hotelPaid
 
   const add = async () => {
     const amt = parseFloat(form.amount_eur)
@@ -272,11 +282,23 @@ export default function FinancePage() {
             tone={grossMargin >= 0 ? 'emerald' : 'rose'}
           />
           <StatCard label={t('finance.extraIncome')} value={manual.income} tone="emerald" />
-          <StatCard label={t('finance.manualExpenses')} value={manual.expense} tone="rose" />
+          <StatCard
+            label={t('finance.manualExpenses')}
+            value={manual.otherExpense}
+            tone="rose"
+            hint="hotel shown separately"
+          />
           <StatCard
             label={t('finance.netProfit')}
             value={netProfit}
             tone={netProfit >= 0 ? 'emerald' : 'rose'}
+          />
+          <StatCard label="Hotel paid so far" value={manual.hotelPaid} tone="emerald" />
+          <StatCard
+            label="Hotel still to pay"
+            value={hotelOutstanding}
+            tone={hotelOutstanding > 0 ? 'rose' : 'emerald'}
+            hint="cost minus what we have handed over"
           />
         </div>
         <div className="text-xs text-muted-foreground pt-1">
