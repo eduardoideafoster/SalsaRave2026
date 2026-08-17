@@ -19,35 +19,20 @@ export type HotelRates = {
 }
 
 /**
- * The /finance rates are quoted as a single and a shared price, with 15% off
- * the 3rd and 4th occupant. Spread across everyone in the room that is 5% off
- * a triple and 7.5% off a quadruple — exactly, not approximately — so the two
- * ways of saying it produce the same bill.
+ * Both sets come straight off the hotel's own price lists, which quote a
+ * triple and a quadruple outright instead of discounting the extra guests.
+ * Each list also shows a 25 € single supplement, which is exactly the gap
+ * between the shared and the individual rate — 60 + 25 = 85, 80 + 25 = 105 —
+ * so it is already inside these numbers rather than something to add on.
+ *
+ * The two pages are meant to disagree, so neither set is the module's
+ * implicit one: computeHotelCost is told which to use.
  */
-const EXTRA_OCCUPANT_DISCOUNT = 0.15
-const fromSharedRate = (single: number, shared: number): OccupancyRates => ({
-  1: single,
-  2: shared,
-  3: (shared * (2 + (1 - EXTRA_OCCUPANT_DISCOUNT))) / 3,
-  4: (shared * (2 + 2 * (1 - EXTRA_OCCUPANT_DISCOUNT))) / 4,
-})
-
-/** What /finance charges: H3 85/58, H4 108/83, 15% off the 3rd and 4th. */
 export const RATES: HotelRates = {
-  H3: fromSharedRate(85, 58),
-  H4: fromSharedRate(108, 83),
+  H3: { 1: 85, 2: 60, 3: 57, 4: 55.5 },
+  H4: { 1: 105, 2: 80, 3: 76, 4: 74 },
 }
 
-/**
- * What /interno charges — straight off the hotel's own price list of
- * 2026-08-17, which prices a triple and a quadruple outright instead of
- * discounting the extra guests. H4 is where the two ways part company: its
- * triple and quadruple are cheaper than any percentage off the double.
- *
- * The list also shows a 25 € single supplement, which is simply the gap
- * between the shared and the individual rate (57 + 25 = 82, 77 + 25 = 102),
- * so it is already inside these numbers rather than something to add on.
- */
 export const INTERNAL_RATES: HotelRates = {
   H3: { 1: 82, 2: 57, 3: 54.15, 4: 52.73 },
   H4: { 1: 102, 2: 77, 3: 67.48, 4: 62.73 },
