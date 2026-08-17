@@ -26,6 +26,7 @@ interface Entry {
   amount_eur: number
   date: string
   created_at: string
+  scope: 'both' | 'finance' | 'interno'
 }
 
 interface Payment {
@@ -92,6 +93,7 @@ export default function FinancePage() {
     description: '',
     amount_eur: '',
     date: new Date().toISOString().slice(0, 10),
+    onlyHere: false,
   })
   const [busy, setBusy] = useState(false)
   const [importMsg, setImportMsg] = useState<string | null>(null)
@@ -99,7 +101,14 @@ export default function FinancePage() {
 
   const load = useCallback(async () => {
     const [entriesRes, paymentsRes, bookingsRes, roomsRes, guestsRes] = await Promise.all([
-      supabase.from('finance_entries').select('*').order('date', { ascending: false }),
+  // Both pages read this one table. `scope` is what lets an entry belong to
+  // only one of them -- the hotel payment differs between the two realities,
+  // while an expense like the DJs is the same in both.
+      supabase
+        .from('finance_entries')
+        .select('*')
+        .in('scope', ['both', 'interno'])
+        .order('date', { ascending: false }),
       supabase.from('payments').select('locator, order_code, ticket, price_eur'),
       supabase.from('bookings').select('room_id, check_in_date, check_out_date'),
       supabase.from('rooms').select('id, hotel, room_type'),
@@ -164,6 +173,7 @@ export default function FinancePage() {
       description: form.description || null,
       amount_eur: amt,
       date: form.date,
+      scope: form.onlyHere ? 'interno' : 'both',
     })
     setForm({ ...form, description: '', amount_eur: '' })
     setBusy(false)
@@ -364,6 +374,15 @@ export default function FinancePage() {
             className="bg-secondary border-border"
           />
         </div>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={form.onlyHere}
+            onChange={(e) => setForm({ ...form, onlyHere: e.target.checked })}
+            className="size-4 accent-primary"
+          />
+          Only on this page (leave off and it shows in /finance too)
+        </label>
         <Button onClick={add} disabled={busy || !form.amount_eur}>
           <Plus className="size-4 mr-1" /> {t('finance.add')}
         </Button>
