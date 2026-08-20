@@ -207,22 +207,31 @@ export function StatisticsTab() {
     // panel below correctly showed nine still to sell.
     const inventoryOn = (date: string) =>
       rooms.filter(
-        (r) => r.status !== 'maintenance' && r.status !== 'blocked' && r.available_from <= date,
+        (r) =>
+          !r.is_staff &&
+          r.status !== 'maintenance' &&
+          r.status !== 'blocked' &&
+          r.available_from <= date,
       ).length
     const inventoryThu = inventoryOn('2026-09-10')
     const inventoryFri = inventoryOn('2026-09-11')
     // Distinct rooms in use on each night
     // Checkout date is inclusive (the room is still considered occupied on the day a guest leaves).
-    const roomsOnSep10 = new Set(
-      bookings
-        .filter((b) => b.status !== 'cancelled' && b.check_in_date <= '2026-09-10' && b.check_out_date >= '2026-09-10')
-        .map((b) => b.room_id),
-    ).size
-    const roomsOnSep11 = new Set(
-      bookings
-        .filter((b) => b.status !== 'cancelled' && b.check_in_date <= '2026-09-11' && b.check_out_date >= '2026-09-11')
-        .map((b) => b.room_id),
-    ).size
+    const guestRoomIds = new Set(guestRooms.map((r) => r.id))
+    const guestRoomsInUseOn = (date: string) =>
+      new Set(
+        bookings
+          .filter(
+            (b) =>
+              b.status !== 'cancelled' &&
+              b.check_in_date <= date &&
+              b.check_out_date >= date &&
+              guestRoomIds.has(b.room_id),
+          )
+          .map((b) => b.room_id),
+      ).size
+    const roomsOnSep10 = guestRoomsInUseOn('2026-09-10')
+    const roomsOnSep11 = guestRoomsInUseOn('2026-09-11')
     // Sellable means free for the WHOLE stay, not just the first night.
     // Counting rooms idle on Thursday claimed 28 were sellable as
     // 4-night stays, but every one of them is taken from Friday by
@@ -230,6 +239,10 @@ export function StatisticsTab() {
     const sellableForStay = (checkIn: string, lastNight: string) =>
       rooms.filter(
         (r) =>
+          // Staff rooms are not for sale. Leaving them in made this panel
+          // disagree with Total remaining below, which has always counted
+          // guest rooms only: one of the six was H3-435, a staff room.
+          !r.is_staff &&
           r.status !== 'maintenance' &&
           r.status !== 'blocked' &&
           r.available_from <= checkIn &&
@@ -350,7 +363,7 @@ export function StatisticsTab() {
               {fmtDelta(stats.fourNightFree)}
             </span>
             {' · '}
-            {stats.roomsOnSep10}/{stats.inventoryThu} rooms in use Thu night
+            {stats.roomsOnSep10}/{stats.inventoryThu} guest rooms in use Thu night
           </div>
         </div>
         <div
@@ -371,7 +384,7 @@ export function StatisticsTab() {
               {fmtDelta(stats.threeNightFree)}
             </span>
             {' · '}
-            {stats.roomsOnSep11}/{stats.inventoryFri} rooms in use Fri night
+            {stats.roomsOnSep11}/{stats.inventoryFri} guest rooms in use Fri night
           </div>
         </div>
       </div>
