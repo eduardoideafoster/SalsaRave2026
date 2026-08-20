@@ -190,8 +190,11 @@ export function StatisticsTab() {
     const bookedRoomIds = new Set(
       bookings.filter((b) => b.status !== 'cancelled').map((b) => b.room_id),
     )
-    // Effective inventory excludes maintenance rooms (e.g. hotel-reserved blocks).
-    const guestRooms = rooms.filter((r) => !r.is_staff && r.status !== 'maintenance' && r.status !== 'blocked')
+    // Every room counts as inventory. is_staff is a note about who we mean to
+    // put in it, not a room that cannot be sold -- excluding it here is what
+    // made this panel say five remaining while the one above said six
+    // sellable. Maintenance and hotel-held blocks are the real exclusions.
+    const guestRooms = rooms.filter((r) => r.status !== 'maintenance' && r.status !== 'blocked')
     const staffRooms = rooms.filter((r) => r.is_staff)
     const guestRoomsBooked = guestRooms.filter((r) => bookedRoomIds.has(r.id)).length
     const guestRoomsRemaining = guestRooms.length - guestRoomsBooked
@@ -207,31 +210,20 @@ export function StatisticsTab() {
     // panel below correctly showed nine still to sell.
     const inventoryOn = (date: string) =>
       rooms.filter(
-        (r) =>
-          !r.is_staff &&
-          r.status !== 'maintenance' &&
-          r.status !== 'blocked' &&
-          r.available_from <= date,
+        (r) => r.status !== 'maintenance' && r.status !== 'blocked' && r.available_from <= date,
       ).length
     const inventoryThu = inventoryOn('2026-09-10')
     const inventoryFri = inventoryOn('2026-09-11')
     // Distinct rooms in use on each night
     // Checkout date is inclusive (the room is still considered occupied on the day a guest leaves).
-    const guestRoomIds = new Set(guestRooms.map((r) => r.id))
-    const guestRoomsInUseOn = (date: string) =>
+    const roomsInUseOn = (date: string) =>
       new Set(
         bookings
-          .filter(
-            (b) =>
-              b.status !== 'cancelled' &&
-              b.check_in_date <= date &&
-              b.check_out_date >= date &&
-              guestRoomIds.has(b.room_id),
-          )
+          .filter((b) => b.status !== 'cancelled' && b.check_in_date <= date && b.check_out_date >= date)
           .map((b) => b.room_id),
       ).size
-    const roomsOnSep10 = guestRoomsInUseOn('2026-09-10')
-    const roomsOnSep11 = guestRoomsInUseOn('2026-09-11')
+    const roomsOnSep10 = roomsInUseOn('2026-09-10')
+    const roomsOnSep11 = roomsInUseOn('2026-09-11')
     // Sellable means free for the WHOLE stay, not just the first night.
     // Counting rooms idle on Thursday claimed 28 were sellable as
     // 4-night stays, but every one of them is taken from Friday by
@@ -239,10 +231,6 @@ export function StatisticsTab() {
     const sellableForStay = (checkIn: string, lastNight: string) =>
       rooms.filter(
         (r) =>
-          // Staff rooms are not for sale. Leaving them in made this panel
-          // disagree with Total remaining below, which has always counted
-          // guest rooms only: one of the six was H3-435, a staff room.
-          !r.is_staff &&
           r.status !== 'maintenance' &&
           r.status !== 'blocked' &&
           r.available_from <= checkIn &&
@@ -363,7 +351,7 @@ export function StatisticsTab() {
               {fmtDelta(stats.fourNightFree)}
             </span>
             {' · '}
-            {stats.roomsOnSep10}/{stats.inventoryThu} guest rooms in use Thu night
+            {stats.roomsOnSep10}/{stats.inventoryThu} rooms in use Thu night
           </div>
         </div>
         <div
@@ -384,7 +372,7 @@ export function StatisticsTab() {
               {fmtDelta(stats.threeNightFree)}
             </span>
             {' · '}
-            {stats.roomsOnSep11}/{stats.inventoryFri} guest rooms in use Fri night
+            {stats.roomsOnSep11}/{stats.inventoryFri} rooms in use Fri night
           </div>
         </div>
       </div>
@@ -403,7 +391,7 @@ export function StatisticsTab() {
             {stats.guestRoomsRemaining}
           </div>
           <div className="mt-3 text-xs sm:text-sm text-muted-foreground">
-            of <span className="text-foreground font-semibold">{stats.guestRoomsTotal}</span> guest rooms · {stats.guestRoomsBooked} booked
+            of <span className="text-foreground font-semibold">{stats.guestRoomsTotal}</span> rooms · {stats.guestRoomsBooked} booked
           </div>
         </div>
         <div
@@ -524,8 +512,8 @@ export function StatisticsTab() {
               <p className="text-sm font-medium text-muted-foreground">Occupancy</p>
               <p className="text-2xl sm:text-3xl font-bold text-blue-400 mt-2">
                 {(() => {
-                  const total = stats.guestRoomsTotal + stats.staffRoomsTotal
-                  const used = stats.guestRoomsBooked + stats.staffRoomsTotal
+                  const total = stats.guestRoomsTotal
+                  const used = stats.guestRoomsBooked
                   return total > 0 ? `${((used / total) * 100).toFixed(0)}%` : '—'
                 })()}
               </p>
