@@ -505,6 +505,108 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
     downloadCSV(generateCSV(headers, rows), `salsarave-2026-rooming-list-${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
+  // CSV export — one row per room, occupants across columns.
+  // Also spells out how the room is actually used night by night: a
+  // double taken from Friday but held by one of the two from Thursday
+  // is one night at single occupancy and three at double, which is what
+  // the hotel bills and what neither other export could show.
+  const handleExportRoomGridCSV = () => {
+    const MAX = 4
+    const headers = [
+      'room_number',
+      'habitacion_solicitada',
+      'hotel',
+      'room_type',
+      'capacity',
+      'is_staff',
+      'room_first_night',
+      'room_check_out',
+      'total_nights',
+      'occupancy_by_night',
+      ...Array.from({ length: MAX }, (_, i) => [
+        `guest_${i + 1}_name`,
+        `guest_${i + 1}_check_in`,
+        `guest_${i + 1}_check_out`,
+      ]).flat(),
+      'extra_guests',
+    ]
+
+    // Nights run [check_in, check_out): a guest in on the 10th and out
+    // on the 14th sleeps four nights. Same convention the billing uses.
+    const eachNight = (from: string, toExclusive: string) => {
+      const out: string[] = []
+      const d = new Date(from + 'T00:00:00Z')
+      const end = new Date(toExclusive + 'T00:00:00Z')
+      while (d < end) {
+        out.push(d.toISOString().slice(0, 10))
+        d.setUTCDate(d.getUTCDate() + 1)
+      }
+      return out
+    }
+
+    const rows: string[][] = []
+    const sortedByRoom = [...rooms].sort((a, b) => Number(a.room_number) - Number(b.room_number))
+
+    for (const room of sortedByRoom) {
+      // Each occupant with their own booking dates, earliest arrival first.
+      const stays = bookings
+        .filter((b) => b.status !== 'cancelled' && b.room_id === room.id)
+        .map((b) => ({
+          guest: guests.find((g) => g.id === b.guest_id),
+          in: b.check_in_date ?? null,
+          out: b.check_out_date ?? null,
+        }))
+        .filter((x) => x.guest)
+        .sort((a, b) => (a.in ?? '').localeCompare(b.in ?? '') || (a.guest!.full_name).localeCompare(b.guest!.full_name))
+
+      const firstIn = room.check_in_date ?? stays.reduce<string | null>(
+        (acc, x) => (x.in && (!acc || x.in < acc) ? x.in : acc), null)
+      const lastOut = room.check_out_date ?? stays.reduce<string | null>(
+        (acc, x) => (x.out && (!acc || x.out > acc) ? x.out : acc), null)
+
+      // How many people sleep here each night, summarised.
+      let occupancy = ''
+      let totalNights = 0
+      if (firstIn && lastOut) {
+        const perNight = new Map<string, number>()
+        for (const s of stays) {
+          if (!s.in || !s.out) continue
+          for (const n of eachNight(s.in, s.out)) perNight.set(n, (perNight.get(n) ?? 0) + 1)
+        }
+        const nights = [...perNight.entries()].filter(([, n]) => n > 0).sort()
+        totalNights = nights.length
+        const byCount = new Map<number, number>()
+        for (const [, n] of nights) byCount.set(n, (byCount.get(n) ?? 0) + 1)
+        occupancy = [...byCount.entries()]
+          .sort((a, b) => a[0] - b[0])
+          .map(([people, n]) => `${n} night${n > 1 ? 's' : ''} at ${people}`)
+          .join(' · ')
+      }
+
+      const cells: string[] = []
+      for (let i = 0; i < MAX; i++) {
+        const s = stays[i]
+        cells.push(s?.guest?.full_name ?? '', s?.in ?? '', s?.out ?? '')
+      }
+
+      rows.push([
+        room.room_number,
+        room.requested ? 'Habitación solicitada' : '',
+        room.hotel,
+        room.room_type,
+        String(room.capacity),
+        room.is_staff ? 'yes' : 'no',
+        firstIn ?? '',
+        lastOut ?? '',
+        totalNights ? String(totalNights) : '',
+        occupancy,
+        ...cells,
+        stays.length > MAX ? stays.slice(MAX).map((x) => x.guest!.full_name).join(' + ') : '',
+      ])
+    }
+    downloadCSV(generateCSV(headers, rows), `salsarave-2026-room-grid-${new Date().toISOString().slice(0, 10)}.csv`)
+  }
+
   // CSV export — rooms inventory only
   const handleExportRoomsCSV = () => {
     const headers = ['room_number', 'habitacion_solicitada', 'hotel', 'room_type', 'capacity', 'available_from', 'status', 'is_staff', 'notes']
@@ -758,6 +860,12 @@ export function RoomsTab({ onOpenGuest }: RoomsTabProps = {}) {
                 <span className="flex flex-col items-start">
                   <span>Rooms inventory</span>
                   <span className="text-xs text-muted-foreground">One row per room · no guest names</span>
+                </span>
+              </Button>
+              <Button variant="ghost" className="w-full justify-start text-sm h-auto py-2" onClick={handleExportRoomGridCSV}>
+                <span className="flex flex-col items-start">
+                  <span>Room grid (guests in columns)</span>
+                  <span className="text-xs text-muted-foreground">One row per room · up to 4 guests · nights used</span>
                 </span>
               </Button>
               <Button variant="ghost" className="w-full justify-start text-sm h-auto py-2" onClick={handleExportRoomingCSV}>
