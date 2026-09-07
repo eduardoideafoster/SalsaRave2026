@@ -7,6 +7,7 @@ import { GuestsTab } from '@/components/guests-tab'
 import { RoomsTab } from '@/components/rooms-tab'
 import { AvailabilityTab } from '@/components/availability-tab'
 import { StatisticsTab } from '@/components/statistics-tab'
+import { ChangesTab } from '@/components/changes-tab'
 
 export default function HotelManager() {
   const [activeTab, setActiveTab] = useState<Tab>('guests')
@@ -31,6 +32,7 @@ export default function HotelManager() {
         {activeTab === 'rooms' && <RoomsTab onOpenGuest={navigateToGuest} />}
         {activeTab === 'availability' && <AvailabilityTab />}
         {activeTab === 'statistics' && <StatisticsTab />}
+        {activeTab === 'changes' && <ChangesTab />}
       </main>
     </div>
   )

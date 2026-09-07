@@ -1,7 +1,7 @@
 'use client'
 
 import { Tab } from '@/lib/types'
-import { Users, BedDouble, CalendarDays, BarChart3, Globe } from 'lucide-react'
+import { Users, BedDouble, CalendarDays, BarChart3, Globe, History } from 'lucide-react'
 import Image from 'next/image'
 import { useLang, useT } from '@/lib/i18n'
 
@@ -19,6 +19,7 @@ export function TopNav({ activeTab, onTabChange }: TopNavProps) {
     { id: 'rooms', label: t('nav.rooms'), icon: <BedDouble className="size-4" /> },
     { id: 'availability', label: t('nav.availability'), icon: <CalendarDays className="size-4" /> },
     { id: 'statistics', label: t('nav.statistics'), icon: <BarChart3 className="size-4" /> },
+    { id: 'changes', label: t('nav.changes'), icon: <History className="size-4" /> },
   ]
 
   return (

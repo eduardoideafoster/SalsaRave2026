@@ -22,6 +22,7 @@ const dictionaries: Record<Lang, Dict> = {
     'nav.rooms': 'ROOMS',
     'nav.availability': 'AVAILABILITY BY DAY',
     'nav.statistics': 'STATISTICS',
+    'nav.changes': 'CHANGES',
 
     // Common
     'common.save': 'Save',
@@ -307,6 +308,7 @@ const dictionaries: Record<Lang, Dict> = {
     'nav.rooms': 'HABITACIONES',
     'nav.availability': 'DISPONIBILIDAD',
     'nav.statistics': 'ESTADÍSTICAS',
+    'nav.changes': 'CAMBIOS',
 
     // Common
     'common.save': 'Guardar',

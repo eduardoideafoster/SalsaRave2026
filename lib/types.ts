@@ -82,4 +82,4 @@ export interface Booking {
   room?: Room
 }
 
-export type Tab = 'guests' | 'rooms' | 'availability' | 'statistics'
+export type Tab = 'guests' | 'rooms' | 'availability' | 'statistics' | 'changes'
