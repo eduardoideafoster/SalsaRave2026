@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Trash2, Plus, LogOut, Upload, Globe, Pencil, Check, X } from 'lucide-react'
 import { computeHotelCost, type HotelRates } from '@/lib/finance/hotel-cost'
+import type { FinanceActuals } from '@/lib/finance/actuals'
 import { useLang, useT } from '@/lib/i18n'
 import { useRouter } from 'next/navigation'
 
@@ -88,6 +89,7 @@ export function FinanceBoard({
   loginPath,
   logout,
   importPaymentsXlsx,
+  actuals,
 }: {
   scope: 'finance' | 'interno'
   rates: HotelRates
@@ -98,6 +100,11 @@ export function FinanceBoard({
     | { ok: true; inserted: number; updated: number; skipped: number; totalPrice: number }
     | { ok: false; error: string }
   >
+  /**
+   * Closed totals that stand in for the computed ones. A page without them
+   * keeps deriving both from its own data, which is what /interno does.
+   */
+  actuals?: FinanceActuals
 }) {
   const supabase = createClient()
   const router = useRouter()
@@ -200,11 +207,18 @@ export function FinanceBoard({
     [bookings, rooms, rates],
   )
 
-  const grossMargin = totalPaid - hotelCost.total
+  // Every figure below is built from these two, so the override has to happen
+  // here and not at the cards: a margin drawn from the computed totals while
+  // the cards showed the closed ones would be the kind of number that is true
+  // once and then quietly stops being true.
+  const revenue = actuals?.revenue ?? totalPaid
+  const hotelTotal = actuals?.hotelCost ?? hotelCost.total
+
+  const grossMargin = revenue - hotelTotal
   // The hotel appears once, as the computed cost. What we have handed over so
   // far is cash flow, shown separately.
-  const netProfit = totalPaid + manual.income - hotelCost.total - manual.otherExpense
-  const hotelOutstanding = hotelCost.total - manual.hotelPaid
+  const netProfit = revenue + manual.income - hotelTotal - manual.otherExpense
+  const hotelOutstanding = hotelTotal - manual.hotelPaid
   // Everything still to hand over: the rest of the hotel, plus the expenses
   // marked as not yet paid.
   const totalOutstanding = hotelOutstanding + manual.unpaidExpense
@@ -359,18 +373,26 @@ export function FinanceBoard({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <StatCard
             label={t('finance.paid')}
-            value={totalPaid}
+            value={revenue}
             tone="emerald"
             // Two different populations, and saying only one of them was the
             // bug: the export has a line per ticket sold, the guest list has a
             // row per person, and staff and Core Tribe never appear in a sale.
-            hint={t('finance.paidHint', { guests: guestCount, rows: payments.length })}
+            hint={
+              actuals
+                ? t('finance.paidHintClosed', { imported: fmt(totalPaid) })
+                : t('finance.paidHint', { guests: guestCount, rows: payments.length })
+            }
           />
           <StatCard
             label={t('finance.hotelCost')}
-            value={hotelCost.total}
+            value={hotelTotal}
             tone="rose"
-            hint={t('finance.hotelCostHint', { n: hotelCost.nights })}
+            hint={
+              actuals
+                ? t('finance.hotelCostHintClosed', { computed: fmt(hotelCost.total) })
+                : t('finance.hotelCostHint', { n: hotelCost.nights })
+            }
           />
           <StatCard
             label={t('finance.grossMargin')}
@@ -408,6 +430,10 @@ export function FinanceBoard({
             h3: fmt(hotelCost.byHotel.H3),
             h4: fmt(hotelCost.byHotel.H4),
           })}
+          {/* The split still comes from the bookings, so it adds up to the
+              computed cost and not to the invoice above it. Saying so beats
+              letting someone add the two halves and find them short. */}
+          {actuals && ' · ' + t('finance.splitNote')}
         </div>
       </section>
 
